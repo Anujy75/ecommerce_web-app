@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Colorful E-Commerce ER Diagram</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: #fff;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 28px;
+      letter-spacing: 1px;
+    }
+
+    #erd {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🛒 E-Commerce Database ER Diagram</h1>
+
+<div id="erd"></div>
+
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+
+await document.fonts.ready;
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: 'Segoe UI',
+  themeVariables: {
+    primaryColor: '#4CAF50',
+    primaryTextColor: '#000000',
+    primaryBorderColor: '#2e7d32',
+
+    secondaryColor: '#2196F3',
+    tertiaryColor: '#FF9800',
+
+    lineColor: '#333',
+    textColor: '#222',
+
+    mainBkg: '#ffffff',
+    nodeBorder: '#444',
+    clusterBkg: '#f9f9f9',
+    fontSize: '14px'
+  }
+});
+
+const diagram = `erDiagram
+  USERS {
+    bigint id PK
+    string name
+    string email
+    string password_hash
+    string role
+    string phone
+    string address
+    datetime created_at
+  }
+
+  PRODUCTS {
+    bigint id PK
+    string name
+    text description
+    decimal price
+    int stock_quantity
+    string image_url
+    bigint category_id FK
+    boolean is_active
+    datetime created_at
+  }
+
+  CATEGORIES {
+    bigint id PK
+    string name
+    string description
+  }
+
+  CART {
+    bigint id PK
+    bigint user_id FK
+    datetime created_at
+    datetime updated_at
+  }
+
+  CART_ITEMS {
+    bigint id PK
+    bigint cart_id FK
+    bigint product_id FK
+    int quantity
+    decimal unit_price
+  }
+
+  ORDERS {
+    bigint id PK
+    bigint user_id FK
+    decimal total_amount
+    string status
+    string shipping_address
+    string payment_method
+    string payment_status
+    datetime ordered_at
+  }
+
+  ORDER_ITEMS {
+    bigint id PK
+    bigint order_id FK
+    bigint product_id FK
+    int quantity
+    decimal unit_price
+  }
+
+  USERS ||--o{ CART : has
+  USERS ||--o{ ORDERS : places
+  CART ||--o{ CART_ITEMS : contains
+  PRODUCTS ||--o{ CART_ITEMS : added_to
+  ORDERS ||--o{ ORDER_ITEMS : includes
+  PRODUCTS ||--o{ ORDER_ITEMS : ordered_in
+  CATEGORIES ||--o{ PRODUCTS : classifies
+`;
+
+const { svg } = await mermaid.render('erd-svg', diagram);
+document.getElementById('erd').innerHTML = svg;
+
+// 🎨 Extra Styling for Nodes (Rounded + Color Cards)
+document.querySelectorAll('#erd svg .node rect').forEach((rect, i) => {
+  rect.setAttribute('rx', '10');
+
+  const colors = [
+    '#4CAF50', '#2196F3', '#FF9800',
+    '#9C27B0', '#E91E63', '#00BCD4'
+  ];
+
+  rect.setAttribute('fill', colors[i % colors.length]);
+  rect.setAttribute('stroke', '#333');
+  rect.setAttribute('stroke-width', '1.5');
+});
+
+// ✨ Text Styling
+document.querySelectorAll('#erd svg text').forEach(text => {
+  text.setAttribute('fill', '#ffffff');
+  text.style.fontWeight = '500';
+});
+
+// 🔗 Line Styling
+document.querySelectorAll('#erd svg path').forEach(line => {
+  line.setAttribute('stroke', '#555');
+  line.setAttribute('stroke-width', '2');
+});
+</script>
+
+</body>
+</html>
