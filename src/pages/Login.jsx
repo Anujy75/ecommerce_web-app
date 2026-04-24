@@ -13,27 +13,26 @@ const Login = () => {
   };
 
 const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const response = await axios.post(
-        "http://localhost:8080/api/users/login",
-        formData
-      );
-      const message = response.data;
-   if (message.startsWith("Login successful")) {
-       const token = message.split("Token: ")[1];
-       localStorage.setItem("token", token);
-       navigate("/");
-  } else {
-  setError(message);
+  e.preventDefault();
+  setLoading(true);
+  setError("");
+  try {
+    const response = await axios.post(
+      "http://localhost:8080/api/auth/login",  // ✅ sahi URL
+      formData
+    );
+    const token = response.data.token;  // ✅ JSON se token nikalo
+    if (token) {
+      localStorage.setItem("token", token);  // ✅ store karo
+      navigate("/");
+    } else {
+      setError("Login failed!");
     }
-      } catch (err) {
-         setError("Something went wrong!");
-      }
-    setLoading(false);
-  };
+  } catch (err) {
+    setError("Invalid email or password!");
+  }
+  setLoading(false);
+};
 
   const styles = {
     page: {

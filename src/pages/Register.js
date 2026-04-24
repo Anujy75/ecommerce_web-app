@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';  // ✅ ADD THIS
 
 function Register() {
+  const navigate = useNavigate();  // ✅ ADD THIS
   const [formData, setFormData] = useState({
     name: '', email: '', password: '', phone: '', address: ''
   });
@@ -16,14 +18,24 @@ function Register() {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/api/users/register', {
+      // ✅ FIXED URL - "/auth/register" not "/users/register"
+      const response = await fetch('http://localhost:8080/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
+      
       const data = await response.text();
       setMessage(data);
       setIsSuccess(response.ok);
+      
+      // ✅ Agar registration successful ho to login page pe bhej do
+      if (response.ok) {
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000); // 2 seconds baad login page pe jayega
+      }
+      
     } catch (error) {
       setMessage('Something went wrong!');
       setIsSuccess(false);
@@ -121,7 +133,6 @@ function Register() {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-
         <div style={styles.logo}>
           <span style={styles.logoText}>🛒 ShopEase</span>
         </div>
@@ -134,6 +145,7 @@ function Register() {
             name="name"
             placeholder="John Doe"
             onChange={handleChange}
+            required
           />
 
           <label style={styles.label}>Email Address</label>
@@ -143,6 +155,7 @@ function Register() {
             type="email"
             placeholder="john@example.com"
             onChange={handleChange}
+            required
           />
 
           <label style={styles.label}>Password</label>
@@ -152,6 +165,7 @@ function Register() {
             type="password"
             placeholder="Min 6 characters"
             onChange={handleChange}
+            required
           />
 
           <label style={styles.label}>Phone Number</label>
@@ -180,7 +194,6 @@ function Register() {
         <div style={styles.divider}>
           Already have an account? <a href="/login" style={styles.link}>Sign In</a>
         </div>
-
       </div>
     </div>
   );
