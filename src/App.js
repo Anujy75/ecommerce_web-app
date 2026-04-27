@@ -6,18 +6,16 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './components/DashBoard';
-import Navbar from './components/Navbar';  // ✅ Navbar add kiya
+import Navbar from './components/Navbar';
 
 function App() {
   return (
     <BrowserRouter>
-      <Navbar />  {/* ✅ Navbar har page pe dikhega */}
+      <Navbar />
       <Routes>
-        {/* Public Routes - Sab access kar sakte hain */}
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
         
-        {/* Protected Routes - Sirf logged in users */}
         <Route path="/" element={
           <ProtectedRoute>
             <Home />
