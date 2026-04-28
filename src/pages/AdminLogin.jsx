@@ -2,7 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-const UserLogin = () => {
+const AdminLogin = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,8 +25,8 @@ const UserLogin = () => {
       
       const { token, role } = response.data;
       
-      if (role !== "CUSTOMER") {
-        setError("This portal is for customers only. Please use Admin Login.");
+      if (role !== "ADMIN") {
+        setError("This portal is for admins only. Please use Customer Login.");
         setLoading(false);
         return;
       }
@@ -34,7 +34,7 @@ const UserLogin = () => {
       if (token) {
         localStorage.setItem("token", token);
         localStorage.setItem("role", role);
-        navigate("/home");
+        navigate("/admin/dashboard");
       }
     } catch (err) {
       setError("Invalid email or password!");
@@ -46,11 +46,11 @@ const UserLogin = () => {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.logo}>
-          <span style={styles.logoIcon}>👤</span>
-          <span style={styles.logoText}>ShopEase Customer</span>
+          <span style={styles.logoIcon}>👑</span>
+          <span style={styles.logoText}>ShopEase Admin</span>
         </div>
-        <h2 style={styles.title}>Customer Login</h2>
-        <p style={styles.subtitle}>Login to shop and explore products</p>
+        <h2 style={styles.title}>Admin Login</h2>
+        <p style={styles.subtitle}>Manage products, orders, and users</p>
         
         <form onSubmit={handleSubmit}>
           <label style={styles.label}>Email Address</label>
@@ -58,7 +58,7 @@ const UserLogin = () => {
             style={styles.input}
             name="email"
             type="email"
-            placeholder="john@example.com"
+            placeholder="admin@shopease.com"
             onChange={handleChange}
             required
           />
@@ -74,7 +74,7 @@ const UserLogin = () => {
           />
           
           <button style={styles.button} type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Login as Customer"}
+            {loading ? "Logging in..." : "Login as Admin"}
           </button>
         </form>
         
@@ -182,4 +182,4 @@ const styles = {
   },
 };
 
-export default UserLogin;
+export default AdminLogin;

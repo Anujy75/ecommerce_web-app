@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+<a href="/portal" style={{ color: "white", textDecoration: "none" }}>Login Portal</a>
 
 const Navbar = () => {
   const navigate = useNavigate();
