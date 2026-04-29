@@ -6,10 +6,10 @@ import Register from './pages/Register';
 import Login from './pages/Login';           // ✅ Login.jsx
 import LoginPortal from './pages/LoginPortal';  
 import AdminLogin from './pages/AdminLogin';        
+import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './components/DashBoard';
 import Navbar from './components/Navbar';
-
 
 function App() {
   return (
@@ -26,6 +26,8 @@ function App() {
         <Route path="/login/user" element={<Login />} />   
         <Route path="/login/admin" element={<AdminLogin />} />
         <Route path="/register" element={<Register />} />
+        
+        {/* Protected Routes */}
         <Route path="/home" element={
           <ProtectedRoute>
             <Home />
@@ -44,6 +46,11 @@ function App() {
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/dashboard" element={
+          <ProtectedRoute>
+            <AdminDashboard />
           </ProtectedRoute>
         } />
       </Routes>
