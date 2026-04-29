@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -44,7 +45,7 @@ public class AuthController {
         return ResponseEntity.ok("User registered successfully");
     }
 
-    // ✅ Login — JWT token return karega
+    // ✅ Login — JWT token + Role return karega
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody User user) {
         Optional<User> existing = userRepository.findByEmail(user.getEmail());
@@ -58,6 +59,13 @@ public class AuthController {
         }
 
         String token = jwtUtil.generateToken(existing.get().getEmail());
-        return ResponseEntity.ok(Map.of("token", token));
+
+        // ✅ Role bhi bhej rahe hain
+        Map<String, String> response = new HashMap<>();
+        response.put("token", token);
+        response.put("role", existing.get().getRole());
+        response.put("email", existing.get().getEmail());
+
+        return ResponseEntity.ok(response);
     }
 }
