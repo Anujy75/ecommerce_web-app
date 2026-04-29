@@ -192,7 +192,7 @@ function Register() {
         {message && <div style={styles.message}>{message}</div>}
 
         <div style={styles.divider}>
-          Already have an account? <a href="/login" style={styles.link}>Sign In</a>
+          Already have an account? <a href="/login/user" style={styles.link}>Sign In</a>
         </div>
       </div>
     </div>

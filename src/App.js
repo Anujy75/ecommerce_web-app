@@ -18,7 +18,11 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/portal" element={<LoginPortal />} />
-        <Route path="/" element={<LoginPortal />} />  
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        } />  
         <Route path="/login/user" element={<Login />} />   
         <Route path="/login/admin" element={<AdminLogin />} />
         <Route path="/register" element={<Register />} />

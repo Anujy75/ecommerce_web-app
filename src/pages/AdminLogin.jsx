@@ -58,7 +58,7 @@ const AdminLogin = () => {
             style={styles.input}
             name="email"
             type="email"
-            placeholder="admin@shopease.com"
+            placeholder="adminuser@gmail.com"
             onChange={handleChange}
             required
           />

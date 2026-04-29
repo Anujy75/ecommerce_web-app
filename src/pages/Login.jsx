@@ -80,6 +80,11 @@ const UserLogin = () => {
         
         {error && <div style={styles.error}>{error}</div>}
         
+        {/* ✅ Registration Link Add Kiya */}
+        <div style={styles.registerLink}>
+          Don't have an account? <a href="/register" style={styles.registerLinkText}>Sign Up</a>
+        </div>
+        
         <div style={styles.backLink}>
           <a href="/portal" style={styles.backLinkText}>← Back to Login Portal</a>
         </div>
@@ -171,8 +176,18 @@ const styles = {
     borderRadius: "12px",
     fontSize: "13px",
   },
+  registerLink: {
+    marginTop: "20px",
+    fontSize: "14px",
+    color: "#64748b",
+  },
+  registerLinkText: {
+    color: "#8b5cf6",
+    textDecoration: "none",
+    fontWeight: "600",
+  },
   backLink: {
-    marginTop: "24px",
+    marginTop: "16px",
   },
   backLinkText: {
     color: "#667eea",

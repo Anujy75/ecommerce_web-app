@@ -5,7 +5,7 @@ const Dashboard = () => {
   
   const handleLogout = () => {
     localStorage.removeItem("token");
-    navigate("/login");
+    navigate("/portal");
   };
   
   return (
