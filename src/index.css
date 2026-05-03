@@ -11,3 +11,180 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* ======================================== */
+/* Admin Dashboard Hover Animations */
+/* ======================================== */
+
+/* Table Rows Hover */
+tr {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+tr:hover {
+  background: #f0f0ff !important;
+  transform: scale(1.01);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+/* Buttons Hover */
+button {
+  transition: all 0.2s ease;
+}
+button:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* Edit Button */
+button:has(.edit-text) {
+  background: rgb(102, 126, 234) !important;
+}
+button:has(.edit-text):hover {
+  background: #7c3aed !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Delete Button */
+button:has(.delete-text) {
+  background: #dc3545 !important;
+}
+button:has(.delete-text):hover {
+  background: #b91c1c !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+/* Category Badge Hover */
+span[style*="categoryBadge"]:hover {
+  transform: scale(1.05);
+  background: #667eea !important;
+  color: white !important;
+  display: inline-block;
+}
+
+/* Filter Select Hover */
+select:hover {
+  border-color: #667eea !important;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+/* Search Input Hover */
+input[type="text"]:hover {
+  border-color: #667eea !important;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+input[type="text"]:focus {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  outline: none;
+}
+/* ======================================== */
+/* Products Page - Customer Side Animations */
+/* ======================================== */
+
+/* Product Card Hover */
+.product-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+.product-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 30px -12px rgba(102, 126, 234, 0.25);
+}
+
+/* Product Image Zoom */
+.product-img {
+  transition: all 0.4s ease;
+  overflow: hidden;
+}
+.product-img:hover {
+  transform: scale(1.08);
+}
+
+/* Add to Cart Button Hover */
+.add-to-cart-btn {
+  transition: all 0.2s ease;
+}
+.add-to-cart-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+  background: #7c3aed !important;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* Add to Cart Button - Added State */
+.added-to-cart {
+  transition: all 0.2s ease;
+}
+.added-to-cart:hover {
+  transform: scale(1.02);
+  background: #059669 !important;
+}
+
+/* Price Tag Hover */
+.price-tag {
+  transition: all 0.2s ease;
+}
+.price-tag:hover {
+  transform: scale(1.05);
+  color: #667eea !important;
+}
+
+/* Stock Badge Hover */
+.stock-badge {
+  transition: all 0.2s ease;
+}
+.stock-badge:hover {
+  transform: scale(1.05);
+  filter: brightness(1.05);
+}
+
+/* Category Badge in Products */
+.prod-category {
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+.prod-category:hover {
+  transform: scale(1.05);
+  background: #667eea !important;
+  color: white !important;
+}
+
+/* Search Bar Hover */
+.search-bar {
+  transition: all 0.2s ease;
+}
+.search-bar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  border-color: #667eea !important;
+}
+
+/* Filter Select Hover */
+.filter-select-prod {
+  transition: all 0.2s ease;
+}
+.filter-select-prod:hover {
+  transform: translateY(-1px);
+  border-color: #667eea !important;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+/* Stats Card Hover (Products page ke stats) */
+.stat-card-prod {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.stat-card-prod:hover {
+  transform: translateY(-4px);
+  background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+  border-color: #667eea !important;
+}
+
+/* Quick View Pulse Animation (for new products) */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+.new-badge {
+  animation: pulse 1.5s ease-in-out infinite;
+}

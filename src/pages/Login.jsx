@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const UserLogin = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -34,6 +35,18 @@ const UserLogin = () => {
       if (token) {
         localStorage.setItem("token", token);
         localStorage.setItem("role", role);
+        
+        // ✅ Welcome Toast Added
+        try {
+          const userResponse = await axios.get("http://localhost:8080/api/user/me", {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const userName = userResponse.data.name || "Customer";
+          toast.success(`Welcome back, ${userName}! 🎉`);
+        } catch (err) {
+          toast.success("Welcome back! 🎉");
+        }
+        
         navigate("/home");
       }
     } catch (err) {
@@ -80,7 +93,6 @@ const UserLogin = () => {
         
         {error && <div style={styles.error}>{error}</div>}
         
-        {/* ✅ Registration Link Add Kiya */}
         <div style={styles.registerLink}>
           Don't have an account? <a href="/register" style={styles.registerLinkText}>Sign Up</a>
         </div>

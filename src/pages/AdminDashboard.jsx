@@ -31,7 +31,6 @@ const AdminDashboard = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(response.data);
-      // Extract unique categories
       const uniqueCategories = ["All", ...new Set(response.data.map(p => p.category).filter(Boolean))];
       setCategories(uniqueCategories);
     } catch (error) {
@@ -49,7 +48,6 @@ const AdminDashboard = () => {
     fetchProducts();
   }, [token, role, navigate, fetchProducts]);
 
-  // Filter products based on search and category
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           product.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -86,40 +84,45 @@ const AdminDashboard = () => {
     }
   };
 
-const handleDelete = async (id, name) => {
-  if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
-    try {
-      // ✅ Token ko localStorage se naya lo
-      const currentToken = localStorage.getItem("token");
-      
-      console.log("Deleting product ID:", id);
-      console.log("Token being sent:", currentToken);
-      
-      const response = await axios.delete(
-        `http://localhost:8080/api/products/${id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${currentToken}`,
-            'Content-Type': 'application/json'
-          }
+  const handleDelete = async (id, name) => {
+    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+      try {
+        const currentToken = localStorage.getItem("token");
+        console.log("Deleting product ID:", id);
+        const response = await axios.delete(
+          `http://localhost:8080/api/products/${id}`,
+          { headers: { 'Authorization': `Bearer ${currentToken}`, 'Content-Type': 'application/json' } }
+        );
+        console.log("Delete response:", response.data);
+        showMessage(`"${name}" deleted successfully!`, "success");
+        fetchProducts();
+      } catch (error) {
+        console.error("Delete error full:", error);
+        if (error.response) {
+          showMessage(`Error: ${error.response.data}`, "error");
+        } else if (error.request) {
+          showMessage("Server not responding!", "error");
+        } else {
+          showMessage("Delete failed! Try again.", "error");
         }
-      );
-      
-      console.log("Delete response:", response.data);
-      showMessage(`"${name}" deleted successfully!`, "success");
-      fetchProducts(); // Refresh list
-    } catch (error) {
-      console.error("Delete error full:", error);
-      if (error.response) {
-        showMessage(`Error: ${error.response.data}`, "error");
-      } else if (error.request) {
-        showMessage("Server not responding!", "error");
-      } else {
-        showMessage("Delete failed! Try again.", "error");
       }
     }
-  }
-};
+  };
+
+  const handleToggleActive = async (id, currentStatus) => {
+    try {
+      const response = await axios.patch(
+        `http://localhost:8080/api/products/${id}/toggle`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      showMessage(`Product ${response.data.active ? "activated" : "deactivated"}!`, "success");
+      fetchProducts();
+    } catch (error) {
+      console.error("Toggle error:", error);
+      showMessage("Error toggling product status", "error");
+    }
+  };
 
   const handleEdit = (product) => {
     setEditingProduct(product);
@@ -149,7 +152,6 @@ const handleDelete = async (id, name) => {
 
   return (
     <div style={styles.page}>
-      {/* Header */}
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>🛒 Inventory Management</h1>
@@ -160,7 +162,6 @@ const handleDelete = async (id, name) => {
         </button>
       </div>
 
-      {/* Stats Cards */}
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
           <div style={styles.statIcon}>📦</div>
@@ -192,14 +193,12 @@ const handleDelete = async (id, name) => {
         </div>
       </div>
 
-      {/* Message Toast */}
       {message && (
         <div style={{...styles.message, ...(messageType === "error" ? styles.messageError : styles.messageSuccess)}}>
           {message}
         </div>
       )}
 
-      {/* Search & Filter Bar */}
       <div style={styles.filterBar}>
         <div style={styles.searchBox}>
           <span style={styles.searchIcon}>🔍</span>
@@ -222,7 +221,6 @@ const handleDelete = async (id, name) => {
         </select>
       </div>
 
-      {/* Products Table */}
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
           <thead>
@@ -278,12 +276,18 @@ const handleDelete = async (id, name) => {
                     </span>
                   </td>
                   <td style={styles.td}>
-                    <span style={product.stock > 0 ? styles.activeBadge : styles.inactiveBadge}>
-                      {product.stock > 0 ? "Active" : "Inactive"}
+                    <span style={product.active ? styles.activeBadge : styles.inactiveBadge}>
+                      {product.active ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td style={styles.td}>
                     <div style={styles.actionBtns}>
+                      <button 
+                        style={product.active ? styles.activeToggleBtn : styles.inactiveToggleBtn}
+                        onClick={() => handleToggleActive(product.id, product.active)}
+                      >
+                        {product.active ? "✅ Active" : "❌ Inactive"}
+                      </button>
                       <button style={styles.editBtn} onClick={() => handleEdit(product)}>✏️ Edit</button>
                       <button style={styles.deleteBtn} onClick={() => handleDelete(product.id, product.name)}>🗑️ Delete</button>
                     </div>
@@ -295,7 +299,6 @@ const handleDelete = async (id, name) => {
         </table>
       </div>
 
-      {/* Add/Edit Modal */}
       {showForm && (
         <div style={styles.modalOverlay} onClick={() => { setShowForm(false); setEditingProduct(null); }}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -340,7 +343,6 @@ const handleDelete = async (id, name) => {
         </div>
       )}
 
-      {/* Footer Stats */}
       <div style={styles.footerStats}>
         <div style={styles.footerStat}>
           <span style={styles.footerStatLabel}>Showing:</span>
@@ -356,6 +358,7 @@ const handleDelete = async (id, name) => {
 };
 
 const styles = {
+  // ... (tumhara purana styles object exactly waise hi rahega)
   page: {
     padding: "2rem",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -620,6 +623,28 @@ const styles = {
     fontWeight: "500",
     transition: "opacity 0.2s",
   },
+  activeToggleBtn: {
+    background: "#10b981",
+    color: "white",
+    border: "none",
+    padding: "6px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+  },
+  inactiveToggleBtn: {
+    background: "#6c757d",
+    color: "white",
+    border: "none",
+    padding: "6px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+  },
   emptyRow: {
     padding: "3rem",
     textAlign: "center",
@@ -773,7 +798,6 @@ const styles = {
   },
 };
 
-// Add animations
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes spin {

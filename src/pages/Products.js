@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 
 function Products() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -28,9 +30,45 @@ function Products() {
   else if (sort === "price-desc") filtered.sort((a, b) => b.price - a.price);
   else if (sort === "name") filtered.sort((a, b) => a.name.localeCompare(b.name));
 
-  const handleAdd = (id) => {
-    setAdded((prev) => ({ ...prev, [id]: true }));
-    setTimeout(() => setAdded((prev) => ({ ...prev, [id]: false })), 1500);
+  // ✅ Fixed: Add to Cart - Saves to localStorage
+  const handleAdd = (product) => {
+    // Get existing cart from localStorage
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    
+    // Check if product already exists in cart
+    const existingItem = cart.find((item) => item.id === product.id);
+    
+    if (existingItem) {
+      existingItem.quantity = (existingItem.quantity || 1) + 1;
+    } else {
+      cart.push({ ...product, quantity: 1 });
+    }
+    
+    // Save back to localStorage
+    localStorage.setItem("cart", JSON.stringify(cart));
+    
+    // Show animation
+    setAdded((prev) => ({ ...prev, [product.id]: true }));
+    setTimeout(() => setAdded((prev) => ({ ...prev, [product.id]: false })), 1500);
+  };
+
+  const handleViewDetails = (id) => {
+    navigate(`/product/${id}`);
+  };
+
+  const handleBuyNow = (product) => {
+    // First add to cart
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const existingItem = cart.find((item) => item.id === product.id);
+    
+    if (existingItem) {
+      existingItem.quantity = (existingItem.quantity || 1) + 1;
+    } else {
+      cart.push({ ...product, quantity: 1 });
+    }
+    localStorage.setItem("cart", JSON.stringify(cart));
+    
+    navigate("/checkout");
   };
 
   const stockBadge = (stock) => {
@@ -47,7 +85,7 @@ function Products() {
         <p style={styles.heroSubtitle}>Discover the best products curated just for you</p>
       </div>
 
-      {/* Stats Row - Improved */}
+      {/* Stats Row */}
       <div style={styles.statsRow}>
         {[
           { label: "Total Products", val: products.length, icon: "📦" },
@@ -71,7 +109,7 @@ function Products() {
         ))}
       </div>
 
-      {/* Filters - Improved */}
+      {/* Filters */}
       <div style={styles.topbar}>
         <div style={styles.searchWrapper}>
           <span style={styles.searchIcon}>🔍</span>
@@ -97,7 +135,7 @@ function Products() {
         🎯 <span style={{ fontWeight: 600 }}>{filtered.length}</span> products found
       </div>
 
-      {/* Product Grid - Improved Cards */}
+      {/* Product Grid */}
       <div style={styles.grid}>
         {filtered.map((p) => (
           <div key={p.id} style={styles.card}>
@@ -112,18 +150,32 @@ function Products() {
               <div style={styles.cardName}>{p.name}</div>
               <div style={styles.cardDesc}>{p.description}</div>
               <div style={styles.cardFooter}>
-                <div>
-                  <span style={styles.price}>₹{p.price.toLocaleString("en-IN")}</span>
-                  {p.price > 50000 && <span style={styles.premiumTag}>Premium</span>}
-                </div>
+                <div style={styles.price}>₹{p.price.toLocaleString("en-IN")}</div>
                 {stockBadge(p.stock)}
               </div>
+              
+              {/* Vertical Buttons Stack */}
+              <button
+                style={styles.detailsBtn}
+                onClick={() => handleViewDetails(p.id)}
+              >
+                👁️ View Details
+              </button>
+              
               <button
                 style={added[p.id] ? styles.addedBtn : p.stock > 0 ? styles.addBtn : styles.disabledBtn}
                 disabled={p.stock === 0}
-                onClick={() => handleAdd(p.id)}
+                onClick={() => handleAdd(p)}
               >
-                {added[p.id] ? "✓ Added to Cart!" : p.stock > 0 ? "Add to Cart" : "Out of Stock"}
+                {added[p.id] ? "✓ Added to Cart!" : "🛒 Add to Cart"}
+              </button>
+              
+              <button
+                style={p.stock > 0 ? styles.buyNowBtn : styles.disabledBuyBtn}
+                disabled={p.stock === 0}
+                onClick={() => handleBuyNow(p)}
+              >
+                ⚡ Buy Now
               </button>
             </div>
           </div>
@@ -148,7 +200,6 @@ const styles = {
     background: "#f8fafc",
     minHeight: "100vh",
   },
-  // Hero Banner
   hero: {
     background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     borderRadius: "24px",
@@ -166,7 +217,6 @@ const styles = {
     fontSize: "16px",
     opacity: 0.9,
   },
-  // Stats Row
   statsRow: {
     display: "flex",
     gap: "16px",
@@ -201,7 +251,6 @@ const styles = {
     color: "#1e293b",
     marginTop: "4px",
   },
-  // Filters
   topbar: {
     display: "flex",
     gap: "40px",
@@ -252,11 +301,10 @@ const styles = {
     marginBottom: "20px",
     marginLeft: "8px",
   },
-  // Grid
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: "24px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+    gap: "28px",
   },
   card: {
     background: "white",
@@ -265,21 +313,17 @@ const styles = {
     transition: "transform 0.2s, box-shadow 0.2s",
     boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
     cursor: "pointer",
-    ":hover": {
-      transform: "translateY(-4px)",
-      boxShadow: "0 12px 24px rgba(0,0,0,0.1)",
-    },
   },
   cardImgWrapper: {
     position: "relative",
   },
   cardImg: {
-    height: "200px",
+    height: "220px",
     background: "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "64px",
+    fontSize: "72px",
   },
   hurryBadge: {
     position: "absolute",
@@ -293,10 +337,10 @@ const styles = {
     fontWeight: "bold",
   },
   cardBody: {
-    padding: "18px",
+    padding: "20px",
   },
   cardCat: {
-    fontSize: "11px",
+    fontSize: "12px",
     color: "#8b5cf6",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
@@ -304,38 +348,33 @@ const styles = {
     marginBottom: "8px",
   },
   cardName: {
-    fontSize: "16px",
+    fontSize: "18px",
     fontWeight: "700",
     color: "#1e293b",
-    marginBottom: "6px",
+    marginBottom: "8px",
   },
   cardDesc: {
     fontSize: "13px",
     color: "#64748b",
     marginBottom: "12px",
-    whiteSpace: "nowrap",
+    lineHeight: "1.4",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
     overflow: "hidden",
-    textOverflow: "ellipsis",
   },
   cardFooter: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "14px",
+    marginBottom: "16px",
+    flexWrap: "wrap",
+    gap: "8px",
   },
   price: {
-    fontSize: "20px",
+    fontSize: "22px",
     fontWeight: "800",
     color: "#0f172a",
-  },
-  premiumTag: {
-    fontSize: "10px",
-    background: "#fef3c7",
-    color: "#d97706",
-    padding: "2px 8px",
-    borderRadius: "12px",
-    marginLeft: "8px",
-    fontWeight: "600",
   },
   inStock: {
     fontSize: "11px",
@@ -361,41 +400,76 @@ const styles = {
     borderRadius: "20px",
     fontWeight: "500",
   },
+  detailsBtn: {
+    width: "100%",
+    padding: "10px 0",
+    background: "#f1f5f9",
+    color: "#334155",
+    border: "1px solid #e2e8f0",
+    borderRadius: "40px",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    marginBottom: "8px",
+  },
   addBtn: {
     width: "100%",
-    padding: "12px 0",
+    padding: "10px 0",
     background: "#8b5cf6",
     color: "white",
     border: "none",
     borderRadius: "40px",
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: "600",
     cursor: "pointer",
     transition: "all 0.2s",
-    ":hover": {
-      background: "#7c3aed",
-      transform: "scale(1.02)",
-    },
+    marginBottom: "8px",
   },
   addedBtn: {
     width: "100%",
-    padding: "12px 0",
+    padding: "10px 0",
     background: "#10b981",
     color: "white",
     border: "none",
     borderRadius: "40px",
-    fontSize: "14px",
+    fontSize: "13px",
     fontWeight: "600",
     cursor: "pointer",
+    marginBottom: "8px",
   },
   disabledBtn: {
     width: "100%",
-    padding: "12px 0",
+    padding: "10px 0",
     background: "#cbd5e1",
     color: "#475569",
     border: "none",
     borderRadius: "40px",
-    fontSize: "14px",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "not-allowed",
+    marginBottom: "8px",
+  },
+  buyNowBtn: {
+    width: "100%",
+    padding: "10px 0",
+    background: "#f97316",
+    color: "white",
+    border: "none",
+    borderRadius: "40px",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  disabledBuyBtn: {
+    width: "100%",
+    padding: "10px 0",
+    background: "#fed7aa",
+    color: "#9a3412",
+    border: "none",
+    borderRadius: "40px",
+    fontSize: "13px",
     fontWeight: "600",
     cursor: "not-allowed",
   },
