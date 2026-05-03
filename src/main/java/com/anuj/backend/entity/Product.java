@@ -32,4 +32,7 @@ public class Product {
 
     @Column(nullable = false)
     private String category;
+    // Is field ko add kar
+    @Column(nullable = false)
+    private Boolean active = true;  // Default active hai
 }

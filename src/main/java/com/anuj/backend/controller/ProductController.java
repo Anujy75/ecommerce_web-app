@@ -63,4 +63,14 @@ public class ProductController {
         productRepository.deleteById(id);
         return ResponseEntity.ok("Product deleted successfully!");
     }
+    // Toggle Product Active/Inactive
+    @PatchMapping("/{id}/toggle")
+    public ResponseEntity<Product> toggleProductActive(@PathVariable Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+
+        product.setActive(!product.getActive());  // Flip the value
+        Product updatedProduct = productRepository.save(product);
+        return ResponseEntity.ok(updatedProduct);
+    }
 }
