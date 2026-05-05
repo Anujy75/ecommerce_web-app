@@ -16,9 +16,16 @@ public class ProductController {
     @Autowired
     private ProductRepository productRepository;
 
-    // GET /api/products - Get All Products
+    // ✅ Customer ke liye - Sirf Active products
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
+        List<Product> products = productRepository.findByActiveTrue();
+        return ResponseEntity.ok(products);
+    }
+
+    // ✅ Admin ke liye - Saare products (active + inactive)
+    @GetMapping("/all")
+    public ResponseEntity<List<Product>> getAllProductsForAdmin() {
         List<Product> products = productRepository.findAll();
         return ResponseEntity.ok(products);
     }
@@ -63,13 +70,14 @@ public class ProductController {
         productRepository.deleteById(id);
         return ResponseEntity.ok("Product deleted successfully!");
     }
+
     // Toggle Product Active/Inactive
     @PatchMapping("/{id}/toggle")
     public ResponseEntity<Product> toggleProductActive(@PathVariable Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        product.setActive(!product.getActive());  // Flip the value
+        product.setActive(!product.getActive());
         Product updatedProduct = productRepository.save(product);
         return ResponseEntity.ok(updatedProduct);
     }
