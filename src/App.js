@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Toaster } from "react-hot-toast";  // ✅ Add this line
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import ProductDetails from "./pages/ProductDetails";
@@ -18,66 +18,26 @@ import Profile from './pages/Profile';
 function App() {
   return (
     <>
-      <Toaster position="top-right" />  {/* ✅ Add this line */}
+      <Toaster position="top-right" />
       <BrowserRouter>
         <Navbar />
         <Routes>
-          {/* Public Routes */}
+          {/* ✅ Root path → Portal */}
+          <Route path="/" element={<Navigate to="/portal" replace />} />
+          
           <Route path="/portal" element={<LoginPortal />} />
           <Route path="/login/user" element={<Login />} />   
           <Route path="/login/admin" element={<AdminLogin />} />
           <Route path="/register" element={<Register />} />
           
-          {/* Customer Only Routes */}
-          <Route path="/" element={
-            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
-              <Home />
-            </ProtectedRoute>
-          } />  
-          <Route path="/home" element={
-            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
-              <Home />
-            </ProtectedRoute>
-          } />
-          <Route path="/products" element={
-            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
-              <Products />
-            </ProtectedRoute>
-          } />
-          <Route path="/product/:id" element={
-            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
-              <ProductDetails />
-            </ProtectedRoute>
-          } />
-          <Route path="/cart" element={
-            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
-              <Cart />
-            </ProtectedRoute>
-          } />
-          <Route path="/checkout" element={
-            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
-              <Checkout />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute allowedRoles={["CUSTOMER", "ADMIN"]}>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          
-          {/* Admin Only Route */}
-          <Route path="/admin/dashboard" element={
-            <ProtectedRoute allowedRoles={["ADMIN"]}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          } />
-          
-          {/* Both Admin & Customer */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute allowedRoles={["ADMIN", "CUSTOMER"]}>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
+          <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+          <Route path="/product/:id" element={<ProtectedRoute><ProductDetails /></ProtectedRoute>} />
+          <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+          <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </>

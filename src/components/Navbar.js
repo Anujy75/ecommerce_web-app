@@ -1,13 +1,33 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
-  const role = localStorage.getItem("role");
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [role, setRole] = useState(localStorage.getItem("role"));
+
+  // ✅ Refresh or route change pe navbar update ho
+  useEffect(() => {
+    const updateNavbar = () => {
+      setToken(localStorage.getItem("token"));
+      setRole(localStorage.getItem("role"));
+    };
+    
+    updateNavbar();
+    window.addEventListener("storage", updateNavbar);
+    return () => window.removeEventListener("storage", updateNavbar);
+  }, []);
+
+  useEffect(() => {
+    setToken(localStorage.getItem("token"));
+    setRole(localStorage.getItem("role"));
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
+    setToken(null);
+    setRole(null);
     navigate("/portal");
   };
 
@@ -26,12 +46,10 @@ const Navbar = () => {
       </h2>
       
       <div style={{ display: "flex", gap: "25px", alignItems: "center", flexWrap: "wrap" }}>
-        {/* Guest (No Login) - Sirf Login Portal */}
         {!token && (
           <a href="/portal" style={{ color: "white", textDecoration: "none" }}>Login Portal</a>
         )}
 
-        {/* Customer Links - Sirf Customer Login Ke Baad */}
         {token && role === "CUSTOMER" && (
           <>
             <a href="/" style={{ color: "white", textDecoration: "none" }}>Home</a>
@@ -41,28 +59,30 @@ const Navbar = () => {
           </>
         )}
 
-        {/* Admin Links - Sirf Admin Login Ke Baad */}
         {token && role === "ADMIN" && (
           <>
             <a href="/admin/dashboard" style={{ color: "white", textDecoration: "none" }}>Admin Dashboard</a>
           </>
         )}
-        
-        {/* ✅ Profile Icon - Both Customer & Admin */}
+
         {token && (
-          <div style={styles.profileWrapper}>
-            <button
-              onClick={() => navigate("/profile")}
-              style={styles.profileIcon}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.3)"}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.2)"}
-            >
-              👤
-            </button>
-          </div>
+          <button
+            onClick={() => navigate("/profile")}
+            style={{
+              background: "rgba(255,255,255,0.2)",
+              border: "none",
+              borderRadius: "50%",
+              width: "36px",
+              height: "36px",
+              fontSize: "18px",
+              cursor: "pointer",
+              color: "white"
+            }}
+          >
+            👤
+          </button>
         )}
         
-        {/* Logout Button - Sirf Login Ke Baad */}
         {token && (
           <button
             onClick={handleLogout}
@@ -83,26 +103,6 @@ const Navbar = () => {
       </div>
     </nav>
   );
-};
-
-const styles = {
-  profileWrapper: {
-    position: "relative",
-  },
-  profileIcon: {
-    background: "rgba(255,255,255,0.2)",
-    border: "none",
-    borderRadius: "50%",
-    width: "38px",
-    height: "38px",
-    fontSize: "18px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.2s ease",
-    color: "white",
-  },
 };
 
 export default Navbar;

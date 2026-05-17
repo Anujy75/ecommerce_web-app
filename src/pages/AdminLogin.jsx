@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const AdminLogin = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -26,7 +27,7 @@ const AdminLogin = () => {
       const { token, role } = response.data;
       
       if (role !== "ADMIN") {
-        setError("This portal is for admins only. Please use Customer Login.");
+        setError("Access denied. Admin only!");
         setLoading(false);
         return;
       }
@@ -34,7 +35,13 @@ const AdminLogin = () => {
       if (token) {
         localStorage.setItem("token", token);
         localStorage.setItem("role", role);
-        navigate("/admin/dashboard");
+        
+        toast.success(`Welcome Admin! 👑`);
+        
+        // ✅ Force navigation after state update
+        setTimeout(() => {
+          navigate("/admin/dashboard");
+        }, 100);
       }
     } catch (err) {
       setError("Invalid email or password!");
@@ -58,7 +65,7 @@ const AdminLogin = () => {
             style={styles.input}
             name="email"
             type="email"
-            placeholder="adminuser@gmail.com"
+            placeholder="admin@shopease.com"
             onChange={handleChange}
             required
           />
@@ -107,12 +114,8 @@ const styles = {
     textAlign: "center",
     boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
   },
-  logo: {
-    marginBottom: "24px",
-  },
-  logoIcon: {
-    fontSize: "56px",
-  },
+  logo: { marginBottom: "24px" },
+  logoIcon: { fontSize: "56px" },
   logoText: {
     fontSize: "32px",
     fontWeight: "800",
@@ -120,25 +123,9 @@ const styles = {
     WebkitBackgroundClip: "text",
     WebkitTextFillColor: "transparent",
   },
-  title: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#1e293b",
-    marginBottom: "8px",
-  },
-  subtitle: {
-    color: "#64748b",
-    fontSize: "14px",
-    marginBottom: "32px",
-  },
-  label: {
-    display: "block",
-    textAlign: "left",
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#444",
-    marginBottom: "6px",
-  },
+  title: { fontSize: "28px", fontWeight: "700", color: "#1e293b", marginBottom: "8px" },
+  subtitle: { color: "#64748b", fontSize: "14px", marginBottom: "32px" },
+  label: { display: "block", textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#444", marginBottom: "6px" },
   input: {
     width: "100%",
     padding: "14px 16px",
@@ -148,7 +135,6 @@ const styles = {
     fontSize: "14px",
     boxSizing: "border-box",
     outline: "none",
-    transition: "border-color 0.2s",
   },
   button: {
     width: "100%",
@@ -160,26 +146,11 @@ const styles = {
     fontSize: "16px",
     fontWeight: "600",
     cursor: "pointer",
-    transition: "background 0.2s",
     marginTop: "8px",
   },
-  error: {
-    marginTop: "16px",
-    padding: "12px",
-    background: "#fee2e2",
-    color: "#dc2626",
-    borderRadius: "12px",
-    fontSize: "13px",
-  },
-  backLink: {
-    marginTop: "24px",
-  },
-  backLinkText: {
-    color: "#667eea",
-    textDecoration: "none",
-    fontSize: "14px",
-    fontWeight: "500",
-  },
+  error: { marginTop: "16px", padding: "12px", background: "#fee2e2", color: "#dc2626", borderRadius: "12px", fontSize: "13px" },
+  backLink: { marginTop: "24px" },
+  backLinkText: { color: "#667eea", textDecoration: "none", fontSize: "14px", fontWeight: "500" },
 };
 
 export default AdminLogin;

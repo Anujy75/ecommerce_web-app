@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
+import axios from "axios";
+import toast from "react-hot-toast";
 
 function Products() {
   const navigate = useNavigate();
@@ -9,6 +11,8 @@ function Products() {
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("default");
   const [added, setAdded] = useState({});
+
+  const token = localStorage.getItem("customerToken") || localStorage.getItem("adminToken");
 
   useEffect(() => {
     API.get("/products")
@@ -30,45 +34,60 @@ function Products() {
   else if (sort === "price-desc") filtered.sort((a, b) => b.price - a.price);
   else if (sort === "name") filtered.sort((a, b) => a.name.localeCompare(b.name));
 
-  // ✅ Fixed: Add to Cart - Saves to localStorage
-  const handleAdd = (product) => {
-    // Get existing cart from localStorage
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    
-    // Check if product already exists in cart
-    const existingItem = cart.find((item) => item.id === product.id);
-    
-    if (existingItem) {
-      existingItem.quantity = (existingItem.quantity || 1) + 1;
-    } else {
-      cart.push({ ...product, quantity: 1 });
+  // ✅ Updated: Add to Cart - Backend API Call
+  const handleAdd = async (product) => {
+    try {
+      if (!token) {
+        toast.error("Please login first");
+        navigate("/portal");
+        return;
+      }
+      
+      await axios.post(
+        "http://localhost:8080/api/cart/add",
+        {
+          productId: product.id,
+          quantity: 1
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setAdded((prev) => ({ ...prev, [product.id]: true }));
+      setTimeout(() => setAdded((prev) => ({ ...prev, [product.id]: false })), 1500);
+      toast.success(`${product.name} added to cart!`);
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      toast.error("Failed to add to cart");
     }
-    
-    // Save back to localStorage
-    localStorage.setItem("cart", JSON.stringify(cart));
-    
-    // Show animation
-    setAdded((prev) => ({ ...prev, [product.id]: true }));
-    setTimeout(() => setAdded((prev) => ({ ...prev, [product.id]: false })), 1500);
   };
 
   const handleViewDetails = (id) => {
     navigate(`/product/${id}`);
   };
 
-  const handleBuyNow = (product) => {
-    // First add to cart
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const existingItem = cart.find((item) => item.id === product.id);
-    
-    if (existingItem) {
-      existingItem.quantity = (existingItem.quantity || 1) + 1;
-    } else {
-      cart.push({ ...product, quantity: 1 });
+  // ✅ Updated: Buy Now - Backend API Call then checkout
+  const handleBuyNow = async (product) => {
+    try {
+      if (!token) {
+        toast.error("Please login first");
+        navigate("/portal");
+        return;
+      }
+      
+      await axios.post(
+        "http://localhost:8080/api/cart/add",
+        {
+          productId: product.id,
+          quantity: 1
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      navigate("/checkout");
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      toast.error("Failed to add to cart");
     }
-    localStorage.setItem("cart", JSON.stringify(cart));
-    
-    navigate("/checkout");
   };
 
   const stockBadge = (stock) => {
@@ -79,13 +98,11 @@ function Products() {
 
   return (
     <div style={styles.page}>
-      {/* Hero Banner */}
       <div style={styles.hero}>
         <h1 style={styles.heroTitle}>✨ Premium Collection</h1>
         <p style={styles.heroSubtitle}>Discover the best products curated just for you</p>
       </div>
 
-      {/* Stats Row */}
       <div style={styles.statsRow}>
         {[
           { label: "Total Products", val: products.length, icon: "📦" },
@@ -109,7 +126,6 @@ function Products() {
         ))}
       </div>
 
-      {/* Filters */}
       <div style={styles.topbar}>
         <div style={styles.searchWrapper}>
           <span style={styles.searchIcon}>🔍</span>
@@ -135,12 +151,21 @@ function Products() {
         🎯 <span style={{ fontWeight: 600 }}>{filtered.length}</span> products found
       </div>
 
-      {/* Product Grid */}
       <div style={styles.grid}>
         {filtered.map((p) => (
           <div key={p.id} style={styles.card}>
             <div style={styles.cardImgWrapper}>
-              <div style={styles.cardImg}>🛍️</div>
+              <div style={styles.cardImg}>
+                {p.imageUrl ? (
+                  <img 
+                    src={p.imageUrl} 
+                    alt={p.name} 
+                    style={styles.productImageStyle} 
+                  />
+                ) : (
+                  "🛍️"
+                )}
+              </div>
               {p.stock <= 5 && p.stock > 0 && (
                 <div style={styles.hurryBadge}>🔥 Hurry!</div>
               )}
@@ -154,7 +179,6 @@ function Products() {
                 {stockBadge(p.stock)}
               </div>
               
-              {/* Vertical Buttons Stack */}
               <button
                 style={styles.detailsBtn}
                 onClick={() => handleViewDetails(p.id)}
@@ -323,7 +347,12 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "72px",
+    overflow: "hidden",
+  },
+  productImageStyle: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
   },
   hurryBadge: {
     position: "absolute",

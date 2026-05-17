@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import toast from "react-hot-toast";
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -11,54 +13,114 @@ const Cart = () => {
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoError, setPromoError] = useState("");
 
+  const token = localStorage.getItem("customerToken") || localStorage.getItem("adminToken");
+
+  const loadCart = useCallback(async () => {
+    try {
+      if (!token) {
+        setCart([]);
+        setLoading(false);
+        return;
+      }
+      const response = await axios.get("http://localhost:8080/api/cart", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // ✅ cartItemId is the real CartItem ID
+      const items = response.data.items?.map(item => ({
+        cartItemId: item.id,
+        id: item.id,
+        productId: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        category: item.product.category,
+        imageUrl: item.product.imageUrl,
+        stock: item.product.stock,
+        quantity: item.quantity
+      })) || [];
+      
+      setCart(items);
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+      if (error.response?.status === 401) {
+        toast.error("Please login again");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     loadCart();
-  }, []);
+  }, [loadCart]);
 
-  const loadCart = () => {
-    const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    setCart(savedCart);
-    setLoading(false);
-  };
-
-  const updateQuantity = (id, newQuantity) => {
+  const updateQuantity = async (cartItemId, newQuantity) => {
     if (newQuantity < 1) {
-      removeItem(id);
+     await removeItem(cartItemId);
       return;
     }
     
-    const updatedCart = cart.map(item =>
-      item.id === id ? { ...item, quantity: Math.min(newQuantity, item.stock || 99) } : item
-    );
-    setCart(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
+    try {
+      await axios.put(
+        `http://localhost:8080/api/cart/update/${cartItemId}`,
+        { quantity: newQuantity },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      loadCart();
+      toast.success("Quantity updated");
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+      toast.error("Failed to update quantity");
+    }
   };
 
-  const removeItem = (id) => {
-    const updatedCart = cart.filter(item => item.id !== id);
-    setCart(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
-  };
+  // ✅ Fixed remove function using cartItemId
+const removeItem = async (cartItemId) => {
+  try {
+    await axios.delete(`http://localhost:8080/api/cart/remove/${cartItemId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    // ✅ Manually cart update kar rahe hain (bina dubara fetch kiye)
+    setCart(prevCart => prevCart.filter(item => item.cartItemId !== cartItemId));
+    
+    toast.success("Item removed from cart");
+  } catch (error) {
+    console.error("Error removing item:", error);
+    toast.error("Failed to remove item");
+  }
+};
 
-  const clearCart = () => {
+  const clearCart = async () => {
     if (window.confirm("Are you sure you want to clear your entire cart?")) {
-      setCart([]);
-      localStorage.removeItem("cart");
-      setDiscount(0);
-      setPromoApplied(false);
-      setPromoCode("");
+      try {
+        await axios.delete("http://localhost:8080/api/cart/clear", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        loadCart();
+        toast.success("Cart cleared");
+        setDiscount(0);
+        setPromoApplied(false);
+        setPromoCode("");
+      } catch (error) {
+        console.error("Error clearing cart:", error);
+        toast.error("Failed to clear cart");
+      }
     }
   };
 
   const applyPromoCode = () => {
+    const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     if (promoCode.toUpperCase() === "SAVE10") {
       setDiscount(cartTotal * 0.1);
       setPromoApplied(true);
       setPromoError("");
+      toast.success("Promo code applied!");
     } else if (promoCode.toUpperCase() === "SAVE20") {
       setDiscount(cartTotal * 0.2);
       setPromoApplied(true);
       setPromoError("");
+      toast.success("Promo code applied!");
     } else {
       setPromoError("Invalid promo code");
       setDiscount(0);
@@ -109,7 +171,6 @@ const Cart = () => {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        {/* Header */}
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>Shopping Cart</h1>
@@ -128,7 +189,6 @@ const Cart = () => {
         </div>
 
         <div style={styles.content}>
-          {/* Cart Items */}
           <div style={styles.cartItems}>
             <AnimatePresence>
               {cart.map((item, index) => (
@@ -159,7 +219,7 @@ const Cart = () => {
                       <motion.button
                         whileTap={{ scale: 0.9 }}
                         style={styles.qtyBtn}
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
                       >
                         −
                       </motion.button>
@@ -167,7 +227,7 @@ const Cart = () => {
                       <motion.button
                         whileTap={{ scale: 0.9 }}
                         style={styles.qtyBtn}
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
                       >
                         +
                       </motion.button>
@@ -176,7 +236,7 @@ const Cart = () => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       style={styles.removeBtn}
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => removeItem(item.cartItemId)}
                     >
                       🗑️ Remove
                     </motion.button>
@@ -189,7 +249,6 @@ const Cart = () => {
             </AnimatePresence>
           </div>
 
-          {/* Order Summary */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -215,7 +274,6 @@ const Cart = () => {
               </div>
             )}
 
-            {/* Promo Code */}
             <div style={styles.promoSection}>
               <input
                 type="text"
@@ -274,7 +332,6 @@ const Cart = () => {
           </motion.div>
         </div>
 
-        {/* Recommended Products Section */}
         {cart.length > 0 && (
           <div style={styles.recommended}>
             <h3 style={styles.recommendedTitle}>You May Also Like</h3>

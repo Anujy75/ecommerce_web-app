@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-const UserLogin = () => {
+const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,11 +32,16 @@ const UserLogin = () => {
         return;
       }
       
-      if (token) {
-        localStorage.setItem("token", token);
-        localStorage.setItem("role", role);
+if (token) {
+  // ✅ Purane token ko bhi rakho (agar kahi use ho raha ho)
+  localStorage.setItem("token", token);
+  // ✅ Naye customerToken ko set karo
+  localStorage.setItem("customerToken", token);
+  localStorage.setItem("role", role);
+  
+  console.log("Token saved in both places");
         
-        // ✅ Welcome Toast Added
+        // Welcome Toast
         try {
           const userResponse = await axios.get("http://localhost:8080/api/user/me", {
             headers: { Authorization: `Bearer ${token}` }
@@ -209,4 +214,4 @@ const styles = {
   },
 };
 
-export default UserLogin;
+export default Login;

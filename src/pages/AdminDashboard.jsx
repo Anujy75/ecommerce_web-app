@@ -27,7 +27,7 @@ const AdminDashboard = () => {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const response = await axios.get("http://localhost:8080/api/products", {
+      const response = await axios.get("http://localhost:8080/api/products/all", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(response.data);
@@ -88,39 +88,33 @@ const AdminDashboard = () => {
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
       try {
         const currentToken = localStorage.getItem("token");
-        console.log("Deleting product ID:", id);
-        const response = await axios.delete(
+        await axios.delete(
           `http://localhost:8080/api/products/${id}`,
-          { headers: { 'Authorization': `Bearer ${currentToken}`, 'Content-Type': 'application/json' } }
+          { headers: { 'Authorization': `Bearer ${currentToken}` } }
         );
-        console.log("Delete response:", response.data);
         showMessage(`"${name}" deleted successfully!`, "success");
         fetchProducts();
       } catch (error) {
-        console.error("Delete error full:", error);
-        if (error.response) {
-          showMessage(`Error: ${error.response.data}`, "error");
-        } else if (error.request) {
-          showMessage("Server not responding!", "error");
-        } else {
-          showMessage("Delete failed! Try again.", "error");
-        }
+        console.error("Delete error:", error);
+        showMessage("Delete failed! Try again.", "error");
       }
     }
   };
 
-  const handleToggleActive = async (id, currentStatus) => {
+  // ✅ New: Toggle Out of Stock - Simply sets stock to 0 or restores to 1
+  const handleToggleOutOfStock = async (product) => {
+    const newStock = product.stock > 0 ? 0 : 1;
+    const updatedProduct = { ...product, stock: newStock };
+    
     try {
-      const response = await axios.patch(
-        `http://localhost:8080/api/products/${id}/toggle`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      showMessage(`Product ${response.data.active ? "activated" : "deactivated"}!`, "success");
+      await axios.put(`http://localhost:8080/api/products/${product.id}`, updatedProduct, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showMessage(`Product ${newStock > 0 ? "marked IN STOCK" : "marked OUT OF STOCK"}!`, "success");
       fetchProducts();
     } catch (error) {
-      console.error("Toggle error:", error);
-      showMessage("Error toggling product status", "error");
+      console.error("Stock toggle error:", error);
+      showMessage("Error updating stock status", "error");
     }
   };
 
@@ -276,17 +270,17 @@ const AdminDashboard = () => {
                     </span>
                   </td>
                   <td style={styles.td}>
-                    <span style={product.active ? styles.activeBadge : styles.inactiveBadge}>
-                      {product.active ? "Active" : "Inactive"}
+                    <span style={product.stock > 0 ? styles.inStockStatus : styles.outStockStatus}>
+                      {product.stock > 0 ? "In Stock" : "Out of Stock"}
                     </span>
                   </td>
                   <td style={styles.td}>
                     <div style={styles.actionBtns}>
                       <button 
-                        style={product.active ? styles.activeToggleBtn : styles.inactiveToggleBtn}
-                        onClick={() => handleToggleActive(product.id, product.active)}
+                        style={product.stock > 0 ? styles.outOfStockBtn : styles.inStockBtn}
+                        onClick={() => handleToggleOutOfStock(product)}
                       >
-                        {product.active ? "✅ Active" : "❌ Inactive"}
+                        {product.stock > 0 ? "📦 Mark Out of Stock" : "🔄 Mark In Stock"}
                       </button>
                       <button style={styles.editBtn} onClick={() => handleEdit(product)}>✏️ Edit</button>
                       <button style={styles.deleteBtn} onClick={() => handleDelete(product.id, product.name)}>🗑️ Delete</button>
@@ -358,7 +352,6 @@ const AdminDashboard = () => {
 };
 
 const styles = {
-  // ... (tumhara purana styles object exactly waise hi rahega)
   page: {
     padding: "2rem",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -396,7 +389,6 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
-    transition: "transform 0.2s, box-shadow 0.2s",
   },
   addIcon: {
     fontSize: "18px",
@@ -417,7 +409,6 @@ const styles = {
     gap: "1rem",
     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     border: "1px solid #e9ecef",
-    transition: "transform 0.2s",
   },
   statIcon: {
     fontSize: "32px",
@@ -458,7 +449,6 @@ const styles = {
     border: "1px solid #e9ecef",
     fontSize: "14px",
     outline: "none",
-    transition: "border-color 0.2s",
   },
   filterSelect: {
     padding: "12px 50px",
@@ -475,7 +465,6 @@ const styles = {
     marginBottom: "1rem",
     textAlign: "center",
     fontWeight: "500",
-    animation: "slideDown 0.3s ease",
   },
   messageSuccess: {
     background: "#d4edda",
@@ -514,7 +503,6 @@ const styles = {
   },
   tableRow: {
     borderBottom: "1px solid #e9ecef",
-    transition: "background 0.2s",
   },
   td: {
     padding: "1rem",
@@ -574,43 +562,63 @@ const styles = {
     fontWeight: "500",
   },
   outStockBadge: {
-    background: "#f8d7da",
-    color: "#721c24",
+    background: "#fee2e2",
+    color: "#991b1b",
     padding: "4px 10px",
     borderRadius: "20px",
     fontSize: "12px",
     fontWeight: "500",
   },
-  activeBadge: {
+  inStockStatus: {
     background: "#d4edda",
-    color: "#155724",
-    padding: "4px 10px",
+    color: "#166534",
+    padding: "4px 12px",
     borderRadius: "20px",
     fontSize: "12px",
-    fontWeight: "500",
+    fontWeight: "600",
   },
-  inactiveBadge: {
-    background: "#e2e3e5",
-    color: "#6c757d",
-    padding: "4px 10px",
+  outStockStatus: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    padding: "4px 12px",
     borderRadius: "20px",
     fontSize: "12px",
-    fontWeight: "500",
+    fontWeight: "600",
   },
   actionBtns: {
     display: "flex",
     gap: "8px",
+    flexWrap: "wrap",
   },
-  editBtn: {
-    background: "rgb(102, 126, 234)",
-    color: "#ffffff",
+  outOfStockBtn: {
+    background: "#f97316",
+    color: "white",
     border: "none",
     padding: "6px 12px",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "12px",
     fontWeight: "500",
-    transition: "opacity 0.2s",
+  },
+  inStockBtn: {
+    background: "#10b981",
+    color: "white",
+    border: "none",
+    padding: "6px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "500",
+  },
+  editBtn: {
+    background: "#3b82f6",
+    color: "white",
+    border: "none",
+    padding: "6px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "500",
   },
   deleteBtn: {
     background: "#dc3545",
@@ -621,29 +629,6 @@ const styles = {
     cursor: "pointer",
     fontSize: "12px",
     fontWeight: "500",
-    transition: "opacity 0.2s",
-  },
-  activeToggleBtn: {
-    background: "#10b981",
-    color: "white",
-    border: "none",
-    padding: "6px 12px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "12px",
-    fontWeight: "500",
-    transition: "all 0.2s ease",
-  },
-  inactiveToggleBtn: {
-    background: "#6c757d",
-    color: "white",
-    border: "none",
-    padding: "6px 12px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "12px",
-    fontWeight: "500",
-    transition: "all 0.2s ease",
   },
   emptyRow: {
     padding: "3rem",
@@ -726,7 +711,6 @@ const styles = {
     border: "1px solid #e9ecef",
     fontSize: "14px",
     outline: "none",
-    transition: "border-color 0.2s",
   },
   formTextarea: {
     width: "100%",
@@ -817,10 +801,6 @@ styleSheet.textContent = `
   button:hover {
     transform: translateY(-1px);
     opacity: 0.9;
-  }
-  .stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
   }
 `;
 document.head.appendChild(styleSheet);
