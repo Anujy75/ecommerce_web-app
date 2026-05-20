@@ -3,13 +3,13 @@ import { useEffect, useState } from "react";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [token, setToken] = useState(localStorage.getItem("customerToken") || localStorage.getItem("adminToken") || localStorage.getItem("token"));
   const [role, setRole] = useState(localStorage.getItem("role"));
 
   // ✅ Refresh or route change pe navbar update ho
   useEffect(() => {
     const updateNavbar = () => {
-      setToken(localStorage.getItem("token"));
+      setToken(localStorage.getItem("customerToken") || localStorage.getItem("adminToken") || localStorage.getItem("token"));
       setRole(localStorage.getItem("role"));
     };
     
@@ -19,12 +19,14 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => {
-    setToken(localStorage.getItem("token"));
+    setToken(localStorage.getItem("customerToken") || localStorage.getItem("adminToken") || localStorage.getItem("token"));
     setRole(localStorage.getItem("role"));
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("customerToken");
+    localStorage.removeItem("adminToken");
     localStorage.removeItem("role");
     setToken(null);
     setRole(null);

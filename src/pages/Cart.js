@@ -6,15 +6,20 @@ import toast from "react-hot-toast";
 
 const Cart = () => {
   const navigate = useNavigate();
+
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [promoCode, setPromoCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoError, setPromoError] = useState("");
 
-  const token = localStorage.getItem("customerToken") || localStorage.getItem("adminToken");
+  const token =
+    localStorage.getItem("customerToken") ||
+    localStorage.getItem("adminToken");
 
+  // ================= LOAD CART =================
   const loadCart = useCallback(async () => {
     try {
       if (!token) {
@@ -22,117 +27,157 @@ const Cart = () => {
         setLoading(false);
         return;
       }
+
       const response = await axios.get("http://localhost:8080/api/cart", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
-      // ✅ cartItemId is the real CartItem ID
-      const items = response.data.items?.map(item => ({
-        cartItemId: item.id,
-        id: item.id,
-        productId: item.product.id,
-        name: item.product.name,
-        price: item.product.price,
-        category: item.product.category,
-        imageUrl: item.product.imageUrl,
-        stock: item.product.stock,
-        quantity: item.quantity
-      })) || [];
-      
+
+      const items =
+        response.data.items?.map((item) => ({
+          cartItemId: item.id,
+          id: item.id,
+          productId: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          category: item.product.category,
+          imageUrl: item.product.imageUrl,
+          stock: item.product.stock,
+          quantity: item.quantity,
+          deliveryDate: "Tomorrow by 10 PM",
+        })) || [];
+
       setCart(items);
     } catch (error) {
       console.error("Error fetching cart:", error);
       if (error.response?.status === 401) {
-        toast.error("Please login again");
+        localStorage.removeItem("customerToken");
+        localStorage.removeItem("adminToken");
+        toast.error("Session expired. Please login again");
+        navigate("/login");
       }
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, navigate]);
 
   useEffect(() => {
     loadCart();
   }, [loadCart]);
 
-  const updateQuantity = async (cartItemId, newQuantity) => {
-    if (newQuantity < 1) {
-     await removeItem(cartItemId);
-      return;
-    }
-    
-    try {
-      await axios.put(
-        `http://localhost:8080/api/cart/update/${cartItemId}`,
-        { quantity: newQuantity },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      loadCart();
-      toast.success("Quantity updated");
-    } catch (error) {
-      console.error("Error updating quantity:", error);
-      toast.error("Failed to update quantity");
-    }
-  };
+  const updateQuantity = async (cartItemId, newQuantity, stock) => {
+    console.log("newQuantity received:", newQuantity);
+  if (newQuantity < 1) {
+    await removeItem(cartItemId);
+    return;
+  }
 
-  // ✅ Fixed remove function using cartItemId
+  if (newQuantity > stock) {
+    toast.error(`Only ${stock} items available`);
+    return;
+  }
+
+  try {
+    const response = await axios.put(
+      `http://localhost:8080/api/cart/update/${cartItemId}`,
+      { quantity: newQuantity },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+     await loadCart();
+    
+    console.log("UPDATE RESPONSE:", response.status, response.data);
+    
+    if (response.status === 200) {
+      await loadCart();
+      toast.success("Quantity updated");
+    } else {
+      toast.error("Update failed");
+    }
+  } catch (error) {
+    console.log("ERROR DETAILS:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    toast.error("Failed to update quantity");
+  }
+};
+  // ================= REMOVE ITEM =================
 const removeItem = async (cartItemId) => {
+  console.log("Removing item:", cartItemId); // Debug
+  
   try {
     await axios.delete(`http://localhost:8080/api/cart/remove/${cartItemId}`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     });
-    
-    // ✅ Manually cart update kar rahe hain (bina dubara fetch kiye)
-    setCart(prevCart => prevCart.filter(item => item.cartItemId !== cartItemId));
+     await loadCart();
+
+    // ✅ Direct cart update without waiting for loadCart
+    setCart((prevCart) => prevCart.filter((item) => item.cartItemId !== cartItemId));
     
     toast.success("Item removed from cart");
   } catch (error) {
-    console.error("Error removing item:", error);
+    console.error(error);
     toast.error("Failed to remove item");
+    await loadCart(); // Rollback on error
   }
 };
-
+  // ================= CLEAR CART =================
   const clearCart = async () => {
     if (window.confirm("Are you sure you want to clear your entire cart?")) {
       try {
         await axios.delete("http://localhost:8080/api/cart/clear", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
-        loadCart();
-        toast.success("Cart cleared");
+
+        await loadCart();
+
         setDiscount(0);
-        setPromoApplied(false);
         setPromoCode("");
+        setPromoApplied(false);
+
+        toast.success("Cart cleared");
       } catch (error) {
-        console.error("Error clearing cart:", error);
+        console.error(error);
         toast.error("Failed to clear cart");
       }
     }
   };
 
+  // ================= APPLY PROMO =================
   const applyPromoCode = () => {
-    const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    
     if (promoCode.toUpperCase() === "SAVE10") {
       setDiscount(cartTotal * 0.1);
       setPromoApplied(true);
       setPromoError("");
-      toast.success("Promo code applied!");
+      toast.success("Promo code applied! 10% off");
     } else if (promoCode.toUpperCase() === "SAVE20") {
       setDiscount(cartTotal * 0.2);
       setPromoApplied(true);
       setPromoError("");
-      toast.success("Promo code applied!");
+      toast.success("Promo code applied! 20% off");
     } else {
       setPromoError("Invalid promo code");
       setDiscount(0);
       setPromoApplied(false);
+      toast.error("Invalid promo code");
     }
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // ================= CALCULATIONS =================
+  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const gstRate = 18;
+  const gstAmount = (cartTotal * gstRate) / 100;
   const shipping = cartTotal > 500 ? 0 : 40;
-  const discountAmount = discount;
-  const grandTotal = cartTotal + shipping - discountAmount;
+  const grandTotal = cartTotal + gstAmount + shipping - discount;
+  const savedAmount = cart.reduce(
+    (sum, item) => sum + ((item.price * 1.2 - item.price) * item.quantity),
+    0
+  );
 
+  // ================= LOADING =================
   if (loading) {
     return (
       <div style={styles.loading}>
@@ -146,16 +191,13 @@ const removeItem = async (cartItemId) => {
     );
   }
 
+  // ================= EMPTY CART =================
   if (cart.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={styles.emptyCart}
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.emptyCart}>
         <div style={styles.emptyIcon}>🛒</div>
         <h2 style={styles.emptyTitle}>Your cart is empty</h2>
-        <p style={styles.emptyText}>Looks like you haven't added any items yet</p>
+        <p style={styles.emptyText}>Add products to continue shopping</p>
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -168,15 +210,15 @@ const removeItem = async (cartItemId) => {
     );
   }
 
+  // ================= MAIN RETURN =================
   return (
     <div style={styles.page}>
       <div style={styles.container}>
+        {/* HEADER */}
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>Shopping Cart</h1>
-            <p style={styles.subtitle}>
-              {cart.length} {cart.length === 1 ? "item" : "items"} in your cart
-            </p>
+            <p style={styles.subtitle}>{totalItems} Items in your cart</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -188,518 +230,205 @@ const removeItem = async (cartItemId) => {
           </motion.button>
         </div>
 
+        {/* CONTENT */}
         <div style={styles.content}>
+          {/* LEFT - CART ITEMS */}
           <div style={styles.cartItems}>
             <AnimatePresence>
               {cart.map((item, index) => (
                 <motion.div
-                  key={item.id}
+                  key={item.cartItemId}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ delay: index * 0.05 }}
                   style={styles.cartItem}
                 >
+                  {/* IMAGE */}
                   <div style={styles.itemImage}>
                     {item.imageUrl ? (
                       <img src={item.imageUrl} alt={item.name} style={styles.image} />
                     ) : (
-                      <span style={styles.imagePlaceholder}>🛍️</span>
+                      <div style={styles.imagePlaceholder}>🛍️</div>
                     )}
                   </div>
-                  
+
+                  {/* DETAILS */}
                   <div style={styles.itemDetails}>
                     <h3 style={styles.itemName}>{item.name}</h3>
                     <p style={styles.itemCategory}>{item.category}</p>
                     <p style={styles.itemPrice}>₹{item.price.toLocaleString("en-IN")}</p>
+                    <p style={{ color: item.stock <= 5 ? "#dc2626" : "#10b981", fontSize: "12px", fontWeight: "600", marginTop: "5px" }}>
+                      {item.stock <= 5 ? `Only ${item.stock} left` : "In Stock"}
+                    </p>
+                    <p style={styles.deliveryText}>🚚 Delivery: {item.deliveryDate}</p>
                   </div>
 
+                  {/* ACTIONS */}
                   <div style={styles.itemActions}>
                     <div style={styles.quantitySelector}>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        style={styles.qtyBtn}
-                        onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
-                      >
+                      <motion.button whileTap={{ scale: 0.9 }} style={styles.qtyBtn} onClick={() => updateQuantity(item.cartItemId, item.quantity - 1, item.stock)}>
                         −
                       </motion.button>
                       <span style={styles.quantity}>{item.quantity}</span>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        style={styles.qtyBtn}
-                        onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
-                      >
+                      <motion.button whileTap={{ scale: 0.9 }} style={styles.qtyBtn} onClick={() => updateQuantity(item.cartItemId, item.quantity + 1, item.stock)}>
                         +
                       </motion.button>
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      style={styles.removeBtn}
-                      onClick={() => removeItem(item.cartItemId)}
-                    >
-                      🗑️ Remove
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} style={styles.removeBtn} onClick={() => removeItem(item.cartItemId)}>
+                      🗑 Remove
                     </motion.button>
-                    <div style={styles.itemTotal}>
-                      ₹{(item.price * item.quantity).toLocaleString("en-IN")}
-                    </div>
+                    <div style={styles.itemTotal}>₹{(item.price * item.quantity).toLocaleString("en-IN")}</div>
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            style={styles.summary}
-          >
+          {/* RIGHT - ORDER SUMMARY */}
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={styles.summary}>
             <h3 style={styles.summaryTitle}>Order Summary</h3>
-            
+
+            <div style={styles.summaryRow}>
+              <span>Items</span>
+              <span>{totalItems}</span>
+            </div>
             <div style={styles.summaryRow}>
               <span>Subtotal</span>
               <span>₹{cartTotal.toLocaleString("en-IN")}</span>
             </div>
-            
+            <div style={styles.summaryRow}>
+              <span>GST (18%)</span>
+              <span>₹{gstAmount.toLocaleString("en-IN")}</span>
+            </div>
             <div style={styles.summaryRow}>
               <span>Shipping</span>
               <span style={{ color: shipping === 0 ? "#10b981" : "#475569" }}>
-                {shipping === 0 ? "Free" : `₹${shipping}`}
+                {shipping === 0 ? "FREE" : `₹${shipping}`}
               </span>
             </div>
-            
+
             {shipping > 0 && (
               <div style={styles.freeShippingNote}>
-                🎉 Add ₹{(500 - cartTotal).toLocaleString("en-IN")} more for free shipping!
+                Add ₹{(500 - cartTotal).toLocaleString("en-IN")} more for FREE shipping
               </div>
             )}
 
+            {/* PROMO CODE */}
             <div style={styles.promoSection}>
               <input
                 type="text"
                 style={styles.promoInput}
-                placeholder="Promo code"
+                placeholder="Promo Code (SAVE10 / SAVE20)"
                 value={promoCode}
+                disabled={promoApplied}
                 onChange={(e) => setPromoCode(e.target.value)}
-                disabled={promoApplied}
               />
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                style={styles.promoBtn}
-                onClick={applyPromoCode}
-                disabled={promoApplied}
-              >
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={styles.promoBtn} onClick={applyPromoCode} disabled={promoApplied}>
                 Apply
               </motion.button>
             </div>
             {promoError && <p style={styles.promoError}>{promoError}</p>}
-            {promoApplied && (
-              <div style={styles.promoSuccess}>
-                🎉 Promo applied! You saved ₹{discountAmount.toLocaleString("en-IN")}
-              </div>
-            )}
+            {promoApplied && <div style={styles.promoSuccess}>🎉 Promo Applied! You saved ₹{discount.toLocaleString("en-IN")}</div>}
 
-            {discountAmount > 0 && (
+            {/* SAVINGS */}
+            <div style={styles.savedBox}>🎉 You saved ₹{savedAmount.toLocaleString("en-IN")} on this order</div>
+
+            {discount > 0 && (
               <div style={styles.summaryRowDiscount}>
                 <span>Discount</span>
-                <span style={{ color: "#10b981" }}>-₹{discountAmount.toLocaleString("en-IN")}</span>
+                <span>-₹{discount.toLocaleString("en-IN")}</span>
               </div>
             )}
 
+            {/* TOTAL */}
             <div style={styles.summaryRowTotal}>
               <span>Total</span>
               <span>₹{grandTotal.toLocaleString("en-IN")}</span>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              style={styles.checkoutBtn}
-              onClick={() => navigate("/checkout")}
-            >
-              Proceed to Checkout →
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={styles.checkoutBtn} onClick={() => navigate("/checkout")}>
+              Proceed To Checkout →
             </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              style={styles.continueBtn}
-              onClick={() => navigate("/products")}
-            >
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={styles.continueBtn} onClick={() => navigate("/products")}>
               Continue Shopping
             </motion.button>
+
+            {/* TRUST BADGES */}
+            <div style={styles.trustBadges}>
+              <span>🔒 Secure Payment</span>
+              <span>↩ 7 Days Return</span>
+              <span>✅ Genuine Products</span>
+            </div>
           </motion.div>
         </div>
-
-        {cart.length > 0 && (
-          <div style={styles.recommended}>
-            <h3 style={styles.recommendedTitle}>You May Also Like</h3>
-            <div style={styles.recommendedGrid}>
-              {[
-                { name: "Trending Item", price: "999", icon: "🔥" },
-                { name: "Best Seller", price: "1499", icon: "⭐" },
-                { name: "New Arrival", price: "1999", icon: "✨" },
-              ].map((item, idx) => (
-                <motion.div
-                  key={idx}
-                  whileHover={{ scale: 1.05 }}
-                  style={styles.recommendedCard}
-                >
-                  <div style={styles.recommendedIcon}>{item.icon}</div>
-                  <h4>{item.name}</h4>
-                  <p>₹{item.price}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 };
 
+// ================= STYLES =================
 const styles = {
   page: {
     padding: "2rem",
-    fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
-    background: "linear-gradient(135deg, #f5f7fa 0%, #f8fafc 100%)",
     minHeight: "100vh",
+    background: "linear-gradient(135deg, #f5f7fa 0%, #f8fafc 100%)",
+    fontFamily: "'Segoe UI', sans-serif",
   },
-  container: {
-    maxWidth: "1400px",
-    margin: "0 auto",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "2rem",
-    flexWrap: "wrap",
-    gap: "1rem",
-  },
-  title: {
-    fontSize: "32px",
-    fontWeight: "800",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    marginBottom: "8px",
-  },
-  subtitle: {
-    color: "#64748b",
-    fontSize: "14px",
-  },
-  clearAllBtn: {
-    padding: "10px 20px",
-    background: "transparent",
-    color: "#dc2626",
-    border: "2px solid #fee2e2",
-    borderRadius: "40px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
-    transition: "all 0.2s",
-  },
-  content: {
-    display: "grid",
-    gridTemplateColumns: "1fr 380px",
-    gap: "2rem",
-  },
-  cartItems: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  cartItem: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "1.5rem",
-    display: "flex",
-    gap: "1.5rem",
-    alignItems: "center",
-    flexWrap: "wrap",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-    border: "1px solid rgba(102, 126, 234, 0.1)",
-    transition: "all 0.3s ease",
-  },
-  itemImage: {
-    width: "100px",
-    height: "100px",
-    borderRadius: "16px",
-    background: "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-  imagePlaceholder: {
-    fontSize: "40px",
-  },
-  itemDetails: {
-    flex: 2,
-    minWidth: "150px",
-  },
-  itemName: {
-    fontSize: "16px",
-    fontWeight: "700",
-    marginBottom: "6px",
-    color: "#1e293b",
-  },
-  itemCategory: {
-    fontSize: "12px",
-    color: "#8b5cf6",
-    marginBottom: "6px",
-    fontWeight: "500",
-  },
-  itemPrice: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  itemActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    flexWrap: "wrap",
-  },
-  quantitySelector: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    background: "#f8fafc",
-    borderRadius: "40px",
-    padding: "4px",
-    border: "1px solid #e2e8f0",
-  },
-  qtyBtn: {
-    width: "32px",
-    height: "32px",
-    background: "white",
-    border: "none",
-    borderRadius: "50%",
-    fontSize: "18px",
-    cursor: "pointer",
-    fontWeight: "bold",
-    color: "#667eea",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-  },
-  quantity: {
-    minWidth: "40px",
-    textAlign: "center",
-    fontWeight: "700",
-    fontSize: "16px",
-  },
-  removeBtn: {
-    padding: "8px 16px",
-    background: "#fef2f2",
-    color: "#dc2626",
-    border: "none",
-    borderRadius: "40px",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: "600",
-    transition: "all 0.2s",
-  },
-  itemTotal: {
-    fontSize: "18px",
-    fontWeight: "800",
-    minWidth: "120px",
-    textAlign: "right",
-    color: "#1e293b",
-  },
-  summary: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "1.5rem",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-    border: "1px solid rgba(102, 126, 234, 0.15)",
-    height: "fit-content",
-    position: "sticky",
-    top: "100px",
-  },
-  summaryTitle: {
-    fontSize: "18px",
-    fontWeight: "700",
-    marginBottom: "1rem",
-    paddingBottom: "0.75rem",
-    borderBottom: "2px solid #667eea",
-    color: "#1e293b",
-  },
-  summaryRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: "0.75rem",
-    color: "#475569",
-    fontSize: "14px",
-  },
-  summaryRowDiscount: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: "0.75rem",
-    color: "#10b981",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-  summaryRowTotal: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: "1rem",
-    paddingTop: "1rem",
-    borderTop: "2px solid #e2e8f0",
-    fontSize: "20px",
-    fontWeight: "800",
-    color: "#1e293b",
-  },
-  freeShippingNote: {
-    background: "#fef3c7",
-    padding: "8px 12px",
-    borderRadius: "10px",
-    fontSize: "12px",
-    color: "#b45309",
-    marginBottom: "1rem",
-    textAlign: "center",
-  },
-  promoSection: {
-    display: "flex",
-    gap: "0.5rem",
-    marginTop: "1rem",
-    marginBottom: "0.5rem",
-  },
-  promoInput: {
-    flex: 1,
-    padding: "10px 14px",
-    borderRadius: "40px",
-    border: "1px solid #e2e8f0",
-    fontSize: "13px",
-    outline: "none",
-  },
-  promoBtn: {
-    padding: "10px 20px",
-    background: "#667eea",
-    color: "white",
-    border: "none",
-    borderRadius: "40px",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: "600",
-  },
-  promoError: {
-    color: "#dc2626",
-    fontSize: "12px",
-    marginTop: "4px",
-  },
-  promoSuccess: {
-    background: "#dcfce7",
-    color: "#166534",
-    padding: "8px 12px",
-    borderRadius: "10px",
-    fontSize: "12px",
-    marginTop: "8px",
-  },
-  checkoutBtn: {
-    width: "100%",
-    padding: "14px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "white",
-    border: "none",
-    borderRadius: "40px",
-    fontSize: "16px",
-    fontWeight: "700",
-    cursor: "pointer",
-    marginTop: "1rem",
-    transition: "all 0.2s",
-  },
-  continueBtn: {
-    width: "100%",
-    padding: "12px",
-    background: "transparent",
-    color: "#667eea",
-    border: "2px solid #667eea",
-    borderRadius: "40px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
-    marginTop: "0.75rem",
-  },
-  recommended: {
-    marginTop: "3rem",
-  },
-  recommendedTitle: {
-    fontSize: "20px",
-    fontWeight: "700",
-    marginBottom: "1rem",
-    color: "#1e293b",
-  },
-  recommendedGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-    gap: "1rem",
-  },
-  recommendedCard: {
-    background: "white",
-    borderRadius: "16px",
-    padding: "1rem",
-    textAlign: "center",
-    cursor: "pointer",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-    border: "1px solid #e2e8f0",
-  },
-  recommendedIcon: {
-    fontSize: "32px",
-    marginBottom: "8px",
-  },
-  emptyCart: {
-    textAlign: "center",
-    padding: "4rem 2rem",
-    background: "white",
-    borderRadius: "24px",
-    margin: "2rem auto",
-    maxWidth: "500px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
-  },
-  emptyIcon: {
-    fontSize: "80px",
-    marginBottom: "1rem",
-  },
-  emptyTitle: {
-    fontSize: "24px",
-    fontWeight: "700",
-    marginBottom: "0.5rem",
-  },
-  emptyText: {
-    color: "#64748b",
-    marginBottom: "1.5rem",
-  },
-  shopBtn: {
-    padding: "12px 32px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "white",
-    border: "none",
-    borderRadius: "40px",
-    cursor: "pointer",
-    fontSize: "16px",
-    fontWeight: "600",
-  },
-  loading: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "3px solid #e2e8f0",
-    borderTop: "3px solid #667eea",
-    borderRadius: "50%",
-  },
+  container: { maxWidth: "1400px", margin: "0 auto" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" },
+  title: { fontSize: "34px", fontWeight: "800", background: "linear-gradient(135deg,#667eea,#764ba2)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
+  subtitle: { color: "#64748b", marginTop: "6px" },
+  clearAllBtn: { padding: "12px 20px", borderRadius: "40px", border: "none", background: "#fee2e2", color: "#dc2626", fontWeight: "700", cursor: "pointer" },
+  content: { display: "grid", gridTemplateColumns: "1fr 380px", gap: "2rem" },
+  cartItems: { display: "flex", flexDirection: "column", gap: "1rem" },
+  cartItem: { background: "white", borderRadius: "22px", padding: "1.5rem", display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap", boxShadow: "0 4px 14px rgba(0,0,0,0.06)" },
+  itemImage: { width: "110px", height: "110px", borderRadius: "18px", overflow: "hidden", background: "#f1f5f9" },
+  image: { width: "100%", height: "100%", objectFit: "cover" },
+  imagePlaceholder: { fontSize: "40px", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" },
+  itemDetails: { flex: 1, minWidth: "180px" },
+  itemName: { fontSize: "18px", fontWeight: "700", marginBottom: "6px" },
+  itemCategory: { color: "#8b5cf6", fontSize: "13px", marginBottom: "6px" },
+  itemPrice: { fontWeight: "700", fontSize: "16px" },
+  deliveryText: { fontSize: "12px", color: "#475569", marginTop: "6px" },
+  itemActions: { display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" },
+  quantitySelector: { display: "flex", alignItems: "center", gap: "8px", background: "#f8fafc", borderRadius: "50px", padding: "5px" },
+  qtyBtn: { width: "34px", height: "34px", borderRadius: "50%", border: "none", background: "white", cursor: "pointer", fontWeight: "bold", fontSize: "18px" },
+  quantity: { minWidth: "35px", textAlign: "center", fontWeight: "700" },
+  removeBtn: { border: "none", background: "#fef2f2", color: "#dc2626", padding: "10px 16px", borderRadius: "40px", cursor: "pointer", fontWeight: "600" },
+  itemTotal: { fontSize: "18px", fontWeight: "800", minWidth: "120px", textAlign: "right" },
+  summary: { background: "white", borderRadius: "24px", padding: "1.5rem", height: "fit-content", position: "sticky", top: "100px", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" },
+  summaryTitle: { fontSize: "22px", fontWeight: "700", marginBottom: "1.5rem" },
+  summaryRow: { display: "flex", justifyContent: "space-between", marginBottom: "1rem", color: "#475569" },
+  summaryRowDiscount: { display: "flex", justifyContent: "space-between", marginTop: "1rem", color: "#10b981", fontWeight: "700" },
+  summaryRowTotal: { display: "flex", justifyContent: "space-between", marginTop: "1.5rem", paddingTop: "1rem", borderTop: "2px solid #e2e8f0", fontSize: "22px", fontWeight: "800" },
+  freeShippingNote: { background: "#fef3c7", padding: "10px", borderRadius: "12px", marginBottom: "1rem", fontSize: "13px", color: "#92400e", textAlign: "center" },
+  promoSection: { display: "flex", gap: "10px", marginTop: "1rem" },
+  promoInput: { flex: 1, padding: "12px", borderRadius: "40px", border: "1px solid #cbd5e1" },
+  promoBtn: { border: "none", background: "linear-gradient(135deg,#667eea,#764ba2)", color: "white", padding: "12px 18px", borderRadius: "40px", cursor: "pointer", fontWeight: "700" },
+  promoError: { color: "#dc2626", marginTop: "8px", fontSize: "13px" },
+  promoSuccess: { background: "#dcfce7", color: "#166534", padding: "10px", borderRadius: "12px", marginTop: "10px", fontSize: "13px" },
+  savedBox: { background: "#ecfccb", color: "#365314", padding: "12px", borderRadius: "12px", marginTop: "1rem", fontWeight: "700", textAlign: "center" },
+  checkoutBtn: { width: "100%", padding: "14px", marginTop: "1.5rem", borderRadius: "40px", border: "none", background: "linear-gradient(135deg,#667eea,#764ba2)", color: "white", fontWeight: "700", cursor: "pointer", fontSize: "16px" },
+  continueBtn: { width: "100%", padding: "12px", marginTop: "1rem", borderRadius: "40px", background: "white", border: "2px solid #667eea", color: "#667eea", fontWeight: "700", cursor: "pointer" },
+  trustBadges: { marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px", color: "#475569" },
+  emptyCart: { maxWidth: "500px", margin: "5rem auto", background: "white", padding: "4rem 2rem", borderRadius: "24px", textAlign: "center", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" },
+  emptyIcon: { fontSize: "90px", marginBottom: "1rem" },
+  emptyTitle: { fontSize: "28px", fontWeight: "700" },
+  emptyText: { marginTop: "10px", color: "#64748b" },
+  shopBtn: { marginTop: "1.5rem", padding: "14px 24px", borderRadius: "40px", border: "none", background: "linear-gradient(135deg,#667eea,#764ba2)", color: "white", fontWeight: "700", cursor: "pointer" },
+  loading: { height: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: "1rem" },
+  spinner: { width: "50px", height: "50px", borderRadius: "50%", border: "4px solid #e2e8f0", borderTop: "4px solid #667eea", animation: "spin 1s linear infinite" },
 };
+
+// Add animation keyframes
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default Cart;
