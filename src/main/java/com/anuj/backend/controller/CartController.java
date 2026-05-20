@@ -11,6 +11,7 @@ import com.anuj.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -34,7 +35,6 @@ public class CartController {
     @Autowired
     private ProductRepository productRepository;
 
-    // ✅ Get current user's cart
     @GetMapping
     public ResponseEntity<?> getCart() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -57,7 +57,6 @@ public class CartController {
         return ResponseEntity.ok(response);
     }
 
-    // ✅ Add to Cart API (T035)
     @PostMapping("/add")
     public ResponseEntity<?> addToCart(@RequestBody Map<String, Object> request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -70,7 +69,6 @@ public class CartController {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        // Get or create cart
         Cart cart = cartRepository.findByUser(user)
                 .orElseGet(() -> {
                     Cart newCart = new Cart();
@@ -78,7 +76,6 @@ public class CartController {
                     return cartRepository.save(newCart);
                 });
 
-        // Check if product already in cart
         Optional<CartItem> existingItem = cart.getItems().stream()
                 .filter(item -> item.getProduct().getId().equals(productId))
                 .findFirst();
@@ -107,14 +104,28 @@ public class CartController {
         return ResponseEntity.ok(response);
     }
 
-    // ✅ Remove item from cart
+    @Transactional
     @DeleteMapping("/remove/{itemId}")
     public ResponseEntity<?> removeFromCart(@PathVariable Long itemId) {
-        cartItemRepository.deleteById(itemId);
-        return ResponseEntity.ok(Map.of("message", "Item removed from cart"));
+        try {
+            CartItem item = cartItemRepository.findById(itemId)
+                    .orElseThrow(() -> new RuntimeException("Cart item not found with id: " + itemId));
+
+            Cart cart = item.getCart();
+            if (cart != null) {
+                cart.getItems().remove(item);
+                cartRepository.save(cart);
+            }
+
+            cartItemRepository.delete(item);
+            cartItemRepository.flush();
+
+            return ResponseEntity.ok(Map.of("message", "Item removed from cart successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
     }
 
-    // ✅ Update quantity
     @PutMapping("/update/{itemId}")
     public ResponseEntity<?> updateQuantity(@PathVariable Long itemId, @RequestBody Map<String, Object> request) {
         int quantity = Integer.parseInt(request.get("quantity").toString());
@@ -128,7 +139,7 @@ public class CartController {
         return ResponseEntity.ok(Map.of("message", "Quantity updated"));
     }
 
-    // ✅ Clear cart
+    @Transactional
     @DeleteMapping("/clear")
     public ResponseEntity<?> clearCart() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
