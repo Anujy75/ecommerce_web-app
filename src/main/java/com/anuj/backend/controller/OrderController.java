@@ -10,7 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -70,8 +72,14 @@ public class OrderController {
             order.setShippingCharges(shippingCharges);
             order.setGrandTotal(grandTotal);
             order.setPaymentMethod(request.getPaymentMethod());
-            order.setPaymentStatus("PENDING");
-            order.setOrderStatus("CONFIRMED");
+
+            if (request.getPaymentMethod().equals("COD")) {
+                order.setPaymentStatus("PENDING");
+                order.setOrderStatus("PENDING");
+            } else {
+                order.setPaymentStatus("PAID");
+                order.setOrderStatus("CONFIRMED");
+            }
 
             order.setFullName(request.getFullName());
             order.setEmail(request.getEmail());
@@ -107,6 +115,7 @@ public class OrderController {
             response.put("orderId", savedOrder.getOrderId());
             response.put("grandTotal", grandTotal);
             response.put("orderStatus", savedOrder.getOrderStatus());
+            response.put("paymentStatus", savedOrder.getPaymentStatus());
 
             return ResponseEntity.ok(response);
 
@@ -115,7 +124,36 @@ public class OrderController {
         }
     }
 
-    // ✅ NO SECURITY CHECK - Direct order fetch
+    // ✅ T053: Get all orders for current user (with @Transactional)
+    @GetMapping("/user")
+    @Transactional  // ✅ Added this line to fix lazy loading error
+    public ResponseEntity<?> getUserOrders() {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            List<Order> orders = orderRepository.findByUserOrderByCreatedAtDesc(user);
+
+            List<Map<String, Object>> response = new ArrayList<>();
+            for (Order order : orders) {
+                Map<String, Object> orderData = new HashMap<>();
+                orderData.put("orderId", order.getOrderId());
+                orderData.put("grandTotal", order.getGrandTotal());
+                orderData.put("orderStatus", order.getOrderStatus());
+                orderData.put("paymentStatus", order.getPaymentStatus());
+                orderData.put("createdAt", order.getCreatedAt());
+                orderData.put("itemsCount", order.getItems().size());
+                response.add(orderData);
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ✅ Get order by ID with full details
     @GetMapping("/{orderId}")
     public ResponseEntity<?> getOrderById(@PathVariable String orderId) {
         try {
@@ -127,6 +165,10 @@ public class OrderController {
             response.put("grandTotal", order.getGrandTotal());
             response.put("orderStatus", order.getOrderStatus());
             response.put("paymentStatus", order.getPaymentStatus());
+            response.put("totalAmount", order.getTotalAmount());
+            response.put("taxAmount", order.getTaxAmount());
+            response.put("shippingCharges", order.getShippingCharges());
+            response.put("items", order.getItems());
             response.put("createdAt", order.getCreatedAt());
 
             return ResponseEntity.ok(response);
