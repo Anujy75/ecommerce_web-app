@@ -14,6 +14,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './components/DashBoard';
 import Navbar from './components/Navbar';
 import Profile from './pages/Profile';
+import OrderSuccess from './pages/OrderSuccess';
+import Orders from './pages/Orders';
+import ChangePassword from './pages/ChangePassword';
 
 function App() {
   return (
@@ -22,8 +25,16 @@ function App() {
       <BrowserRouter>
         <Navbar />
         <Routes>
-          {/* ✅ Root path → Portal */}
-          <Route path="/" element={<Navigate to="/portal" replace />} />
+          {/* ✅ Root path - Conditional based on login */}
+          <Route path="/" element={
+            (localStorage.getItem("customerToken") || localStorage.getItem("adminToken")) ? (
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            ) : (
+              <Navigate to="/portal" replace />
+            )
+          } />
           
           <Route path="/portal" element={<LoginPortal />} />
           <Route path="/login/user" element={<Login />} />   
@@ -38,6 +49,24 @@ function App() {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          
+          <Route path="/order-success" element={
+            <ProtectedRoute allowedRoles={["CUSTOMER", "ADMIN"]}>
+              <OrderSuccess />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/orders" element={
+            <ProtectedRoute allowedRoles={["CUSTOMER", "ADMIN"]}>
+              <Orders />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/change-password" element={
+            <ProtectedRoute allowedRoles={["CUSTOMER", "ADMIN"]}>
+              <ChangePassword />
+            </ProtectedRoute>
+          } />
         </Routes>
       </BrowserRouter>
     </>

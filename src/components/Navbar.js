@@ -58,6 +58,7 @@ const Navbar = () => {
             <a href="/products" style={{ color: "white", textDecoration: "none" }}>Products</a>
             <a href="/cart" style={{ color: "white", textDecoration: "none" }}>Cart 🛒</a>
             <a href="/dashboard" style={{ color: "white", textDecoration: "none" }}>Dashboard</a>
+            <a href="/orders" style={{ color: "white", textDecoration: "none" }}>Orders 📋</a>  {/* ✅ Orders Link Added */}
           </>
         )}
 
