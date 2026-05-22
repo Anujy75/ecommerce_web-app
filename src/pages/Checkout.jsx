@@ -7,6 +7,7 @@ import React, {
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { initiateRazorpayPayment } from "../services/razorpay";
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const Checkout = () => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
+  const [isRazorpayLoading, setIsRazorpayLoading] = useState(false);
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
   const [focused, setFocused] = useState("");
@@ -117,6 +119,54 @@ const Checkout = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // ✅ Razorpay Payment
+    if (formData.paymentMethod === "RAZORPAY") {
+      setIsRazorpayLoading(true);
+      
+      await initiateRazorpayPayment(
+        calculations.finalTotal,
+        {
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address
+        },
+        token,
+        async (paymentResponse) => {
+          try {
+            const orderResponse = await axios.post(
+              "http://localhost:8080/api/orders/checkout",
+              {
+                ...formData,
+                discount,
+                totalAmount: calculations.finalTotal,
+                razorpayPaymentId: paymentResponse.razorpay_payment_id,
+                razorpayOrderId: paymentResponse.razorpay_order_id
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+            toast.success("Order Placed Successfully");
+            navigate(`/order-success?orderId=${orderResponse.data.orderId}`);
+          } catch (err) {
+            console.error(err);
+            toast.error("Failed to place order");
+          }
+          setIsRazorpayLoading(false);
+        },
+        (error) => {
+          toast.error(error || "Payment failed");
+          setIsRazorpayLoading(false);
+        }
+      );
+      return;
+    }
+
+    // ✅ Existing COD/CARD/UPI logic
     setPlacing(true);
 
     try {
@@ -298,6 +348,10 @@ const Checkout = () => {
                     label: "COD",
                     icon: "💵",
                   },
+                  {
+                    label: "RAZORPAY",
+                    icon: "💳",
+                  },
                 ].map((method) => (
                   <div
                     key={method.label}
@@ -367,10 +421,10 @@ const Checkout = () => {
             {/* BUTTON */}
             <button
               type="submit"
-              disabled={placing}
+              disabled={placing || isRazorpayLoading}
               style={styles.checkoutBtn}
             >
-              {placing
+              {placing || isRazorpayLoading
                 ? "Processing..."
                 : `Pay ₹${calculations.finalTotal.toLocaleString(
                     "en-IN"
@@ -695,12 +749,11 @@ const styles = {
     boxSizing: "border-box",
   },
 
-  paymentGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(3,1fr)",
-    gap: "12px",
-  },
+paymentGrid: {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",  // Responsive
+  gap: "12px",
+},
 
   paymentCard: {
     padding: "16px",
