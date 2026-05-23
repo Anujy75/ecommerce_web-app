@@ -9,6 +9,85 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { initiateRazorpayPayment } from "../services/razorpay";
 
+/* ─────────────────────────────────────────────
+   LOCATION DETECTION UTILITY
+   Uses browser Geolocation API + OpenStreetMap
+   Nominatim for reverse geocoding (free, no key)
+───────────────────────────────────────────────*/
+const reverseGeocode = async (lat, lon) => {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`;
+  const res = await fetch(url, {
+    headers: { "Accept-Language": "en" },
+  });
+  if (!res.ok) throw new Error("Geocode failed");
+  return res.json();
+};
+
+const parseAddress = (data) => {
+  const a = data.address || {};
+
+  // Build readable street address
+  const streetParts = [
+    a.house_number,
+    a.road || a.pedestrian || a.footway,
+    a.neighbourhood || a.suburb || a.quarter,
+  ].filter(Boolean);
+
+  const address = streetParts.join(", ") || a.county || "";
+
+  const city =
+    a.city || a.town || a.village || a.municipality || a.district || "";
+
+  const pincode = a.postcode || "";
+
+  return { address, city, pincode };
+};
+
+/* ─────────────────────────────────────────────
+   LOCATION BUTTON COMPONENT
+───────────────────────────────────────────────*/
+const LocationButton = ({ onDetect, detecting }) => (
+  <button
+    type="button"
+    onClick={onDetect}
+    disabled={detecting}
+    style={{
+      ...S.locBtn,
+      ...(detecting ? S.locBtnActive : {}),
+    }}
+    title="Autofill address from current location"
+  >
+    {detecting ? (
+      <>
+        <span style={S.locSpinner} />
+        Detecting location…
+      </>
+    ) : (
+      <>
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ flexShrink: 0 }}
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+          <circle cx="12" cy="12" r="8" strokeDasharray="2 3" />
+        </svg>
+        Use Current Location
+      </>
+    )}
+  </button>
+);
+
+/* ─────────────────────────────────────────────
+   MAIN COMPONENT
+───────────────────────────────────────────────*/
 const Checkout = () => {
   const navigate = useNavigate();
 
@@ -24,6 +103,10 @@ const Checkout = () => {
   const [discount, setDiscount] = useState(0);
   const [focused, setFocused] = useState("");
 
+  // Location state
+  const [detecting, setDetecting] = useState(false);
+  const [locationDetected, setLocationDetected] = useState(false);
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -34,17 +117,38 @@ const Checkout = () => {
     paymentMethod: "UPI",
   });
 
+  /* ── inject fonts + keyframes once ── */
+  useEffect(() => {
+    const id = "co-styles";
+    if (!document.getElementById(id)) {
+      const s = document.createElement("style");
+      s.id = id;
+      s.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+        @keyframes cospin { to { transform: rotate(360deg); } }
+        @keyframes copulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+        @keyframes coslide { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes cocheck { from { stroke-dashoffset:20; } to { stroke-dashoffset:0; } }
+        body { margin:0; padding:0; }
+        input::placeholder, textarea::placeholder { color:#a09c93; }
+        @media(max-width:960px){
+          .co-layout { grid-template-columns: 1fr !important; }
+        }
+        @media(max-width:600px){
+          .co-grid2 { grid-template-columns: 1fr !important; }
+          .co-pay-grid { grid-template-columns: repeat(2,1fr) !important; }
+        }
+      `;
+      document.head.appendChild(s);
+    }
+  }, []);
+
+  /* ── load cart ── */
   const loadCart = useCallback(async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:8080/api/cart",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      const response = await axios.get("http://localhost:8080/api/cart", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setCart(response.data.items || []);
     } catch (err) {
       console.error(err);
@@ -59,97 +163,120 @@ const Checkout = () => {
   }, [loadCart]);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const applyCoupon = () => {
-    if (coupon.toUpperCase() === "ANUJ100") {
-      setDiscount(100);
-      toast.success("Coupon Applied");
-    } else if (
-      coupon.toUpperCase() === "MEGA500"
-    ) {
-      setDiscount(500);
-      toast.success("Mega Discount Applied");
-    } else {
-      setDiscount(0);
-      toast.error("Invalid Coupon");
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    // If user manually edits after location detect, remove the badge
+    if (["address", "city", "pincode"].includes(e.target.name)) {
+      setLocationDetected(false);
     }
   };
 
+  /* ──────────────────────────────────────────
+     LOCATION DETECTION — the main feature
+  ─────────────────────────────────────────────*/
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setDetecting(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const data = await reverseGeocode(latitude, longitude);
+          const parsed = parseAddress(data);
+
+          setFormData((prev) => ({
+            ...prev,
+            address: parsed.address || prev.address,
+            city: parsed.city || prev.city,
+            pincode: parsed.pincode || prev.pincode,
+          }));
+
+          setLocationDetected(true);
+          toast.success("Location detected and address filled!");
+        } catch (err) {
+          console.error(err);
+          toast.error("Could not fetch address. Please fill manually.");
+        } finally {
+          setDetecting(false);
+        }
+      },
+      (error) => {
+        setDetecting(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error("Location permission denied. Please allow access in browser settings.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error("Location unavailable. Try again.");
+            break;
+          case error.TIMEOUT:
+            toast.error("Location request timed out.");
+            break;
+          default:
+            toast.error("Failed to detect location.");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  /* ── coupon ── */
+  const applyCoupon = () => {
+    if (coupon.toUpperCase() === "ANUJ100") {
+      setDiscount(100);
+      toast.success("Coupon Applied — ₹100 off!");
+    } else if (coupon.toUpperCase() === "MEGA500") {
+      setDiscount(500);
+      toast.success("Mega Discount Applied — ₹500 off!");
+    } else {
+      setDiscount(0);
+      toast.error("Invalid coupon code.");
+    }
+  };
+
+  /* ── calculations ── */
   const calculations = useMemo(() => {
     const subtotal = cart.reduce(
-      (sum, item) =>
-        sum + item.product.price * item.quantity,
-      0
+      (sum, item) => sum + item.product.price * item.quantity, 0
     );
-
     const gst = subtotal * 0.18;
-
     const shipping = subtotal > 999 ? 0 : 99;
-
     const platformFee = 9;
-
-    const finalTotal =
-      subtotal +
-      gst +
-      shipping +
-      platformFee -
-      discount;
-
-    return {
-      subtotal,
-      gst,
-      shipping,
-      platformFee,
-      finalTotal,
-    };
+    const finalTotal = subtotal + gst + shipping + platformFee - discount;
+    return { subtotal, gst, shipping, platformFee, finalTotal };
   }, [cart, discount]);
 
   const deliveryDate = useMemo(() => {
     const date = new Date();
     date.setDate(date.getDate() + 3);
-
     return date.toDateString();
   }, []);
 
+  /* ── submit ── */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ Razorpay Payment
     if (formData.paymentMethod === "RAZORPAY") {
       setIsRazorpayLoading(true);
-      
       await initiateRazorpayPayment(
         calculations.finalTotal,
-        {
-          fullName: formData.fullName,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address
-        },
+        { fullName: formData.fullName, email: formData.email, phone: formData.phone, address: formData.address },
         token,
         async (paymentResponse) => {
           try {
             const orderResponse = await axios.post(
               "http://localhost:8080/api/orders/checkout",
-              {
-                ...formData,
-                discount,
-                totalAmount: calculations.finalTotal,
-                razorpayPaymentId: paymentResponse.razorpay_payment_id,
-                razorpayOrderId: paymentResponse.razorpay_order_id
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
+              { ...formData, discount, totalAmount: calculations.finalTotal, razorpayPaymentId: paymentResponse.razorpay_payment_id, razorpayOrderId: paymentResponse.razorpay_order_id },
+              { headers: { Authorization: `Bearer ${token}` } }
             );
-
             toast.success("Order Placed Successfully");
             navigate(`/order-success?orderId=${orderResponse.data.orderId}`);
           } catch (err) {
@@ -166,32 +293,15 @@ const Checkout = () => {
       return;
     }
 
-    // ✅ Existing COD/CARD/UPI logic
     setPlacing(true);
-
     try {
       const response = await axios.post(
         "http://localhost:8080/api/orders/checkout",
-        {
-          ...formData,
-          discount,
-          totalAmount:
-            calculations.finalTotal,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { ...formData, discount, totalAmount: calculations.finalTotal },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      toast.success(
-        "Order Placed Successfully"
-      );
-
-      navigate(
-        `/order-success?orderId=${response.data.orderId}`
-      );
+      toast.success("Order Placed Successfully");
+      navigate(`/order-success?orderId=${response.data.orderId}`);
     } catch (err) {
       console.error(err);
       toast.error("Checkout Failed");
@@ -200,808 +310,605 @@ const Checkout = () => {
     }
   };
 
+  /* ── loading state ── */
   if (loading) {
     return (
-      <div style={styles.loaderPage}>
-        <div style={styles.loader}></div>
-
-        <h2 style={styles.loaderText}>
-          Preparing Checkout...
-        </h2>
+      <div style={S.loaderPage}>
+        <div style={S.loaderRing} />
+        <p style={S.loaderText}>Preparing Checkout…</p>
       </div>
     );
   }
 
+  /* ── empty cart ── */
   if (cart.length === 0) {
     return (
-      <div style={styles.emptyCart}>
-        <h1>Your Cart is Empty</h1>
-
-        <button
-          style={styles.shopBtn}
-          onClick={() =>
-            navigate("/products")
-          }
-        >
+      <div style={S.loaderPage}>
+        <div style={S.emptyIcon}>🛒</div>
+        <h2 style={S.emptyTitle}>Your cart is empty</h2>
+        <button style={S.shopBtn} onClick={() => navigate("/products")}>
           Continue Shopping
         </button>
       </div>
     );
   }
 
+  const isProcessing = placing || isRazorpayLoading;
+
   return (
-    <div style={styles.page}>
-      <div style={styles.overlay}></div>
+    <div style={S.page}>
+      <div style={S.wrapper}>
 
-      <div style={styles.wrapper}>
-        {/* HEADER */}
-        <div style={styles.header}>
+        {/* Header */}
+        <div style={S.header}>
           <div>
-            <h1 style={styles.heading}>
-              Secure Checkout
-            </h1>
-
-            <p style={styles.subheading}>
-              Fast • Secure • Premium
-              Experience
-            </p>
+            <h1 style={S.heading}>Secure Checkout</h1>
+            <p style={S.subheading}>Fast · Secure · Premium</p>
           </div>
-
-          <div style={styles.securityBadge}>
-            🔒 SSL Secured
+          <div style={S.sslBadge}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            SSL Secured
           </div>
         </div>
 
-        {/* MAIN */}
-        <div style={styles.layout}>
-          {/* LEFT */}
-          <form
-            onSubmit={handleSubmit}
-            style={styles.formCard}
-          >
-            {/* SHIPPING */}
-            <div style={styles.section}>
-              <div style={styles.sectionHeader}>
-                🚚 Shipping Details
+        {/* Layout */}
+        <div style={S.layout} className="co-layout">
+
+          {/* ── LEFT: Form ── */}
+          <form onSubmit={handleSubmit} style={S.formCard}>
+
+            {/* Shipping section */}
+            <div style={S.section}>
+              <div style={S.sectionHead}>
+                <span style={S.sectionDot} />
+                Shipping Details
               </div>
 
-              <div style={styles.grid2}>
-                <Input
-                  name="fullName"
-                  placeholder="Full Name"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  focused={focused}
-                  setFocused={setFocused}
-                />
-
-                <Input
-                  name="email"
-                  placeholder="Email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  focused={focused}
-                  setFocused={setFocused}
-                />
+              {/* Location detect button */}
+              <div style={S.locRow}>
+                <LocationButton onDetect={handleDetectLocation} detecting={detecting} />
+                {locationDetected && (
+                  <div style={S.locBadge}>
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray:20, strokeDashoffset:0, animation:"cocheck 0.4s ease" }}>
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Location filled
+                  </div>
+                )}
               </div>
 
-              <div style={styles.grid2}>
-                <Input
-                  name="phone"
-                  placeholder="Phone Number"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  focused={focused}
-                  setFocused={setFocused}
-                />
+              {/* Name + Email */}
+              <div style={S.grid2} className="co-grid2">
+                <InputField name="fullName" placeholder="Full Name" value={formData.fullName} onChange={handleChange} focused={focused} setFocused={setFocused} />
+                <InputField name="email" type="email" placeholder="Email Address" value={formData.email} onChange={handleChange} focused={focused} setFocused={setFocused} />
+              </div>
 
-                <Input
+              {/* Phone + City */}
+              <div style={S.grid2} className="co-grid2">
+                <InputField name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} focused={focused} setFocused={setFocused} />
+                <InputField
                   name="city"
                   placeholder="City"
                   value={formData.city}
                   onChange={handleChange}
                   focused={focused}
                   setFocused={setFocused}
+                  highlighted={locationDetected && !!formData.city}
                 />
               </div>
 
-              <div style={styles.grid2}>
-                <Input
+              {/* Pincode */}
+              <div style={S.grid2} className="co-grid2">
+                <InputField
                   name="pincode"
                   placeholder="Pincode"
                   value={formData.pincode}
                   onChange={handleChange}
                   focused={focused}
                   setFocused={setFocused}
+                  highlighted={locationDetected && !!formData.pincode}
                 />
-
-                <div></div>
+                <div />
               </div>
 
-              <textarea
-                name="address"
-                placeholder="Full Address"
-                value={formData.address}
-                onChange={handleChange}
-                style={styles.textarea}
-                required
-              />
+              {/* Address textarea */}
+              <div style={{ position: "relative" }}>
+                <textarea
+                  name="address"
+                  placeholder="Full Address (Street, Locality, Landmark)"
+                  value={formData.address}
+                  onChange={handleChange}
+                  style={{
+                    ...S.textarea,
+                    border: focused === "address"
+                      ? "1.5px solid #2d6af6"
+                      : locationDetected && formData.address
+                      ? "1.5px solid #1a9c4d"
+                      : "1.5px solid #e4e0d8",
+                  }}
+                  onFocus={() => setFocused("address")}
+                  onBlur={() => setFocused("")}
+                  required
+                />
+                {locationDetected && formData.address && (
+                  <span style={S.fieldCheck}>✓</span>
+                )}
+              </div>
             </div>
 
-            {/* PAYMENT */}
-            <div style={styles.section}>
-              <div style={styles.sectionHeader}>
-                💳 Payment Method
+            {/* Payment section */}
+            <div style={S.section}>
+              <div style={S.sectionHead}>
+                <span style={S.sectionDot} />
+                Payment Method
               </div>
-
-              <div style={styles.paymentGrid}>
+              <div style={S.payGrid} className="co-pay-grid">
                 {[
-                  {
-                    label: "UPI",
-                    icon: "📱",
-                  },
-                  {
-                    label: "CARD",
-                    icon: "💳",
-                  },
-                  {
-                    label: "COD",
-                    icon: "💵",
-                  },
-                  {
-                    label: "RAZORPAY",
-                    icon: "💳",
-                  },
-                ].map((method) => (
-                  <div
-                    key={method.label}
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        paymentMethod:
-                          method.label,
-                      })
-                    }
-                    style={{
-                      ...styles.paymentCard,
-                      border:
-                        formData.paymentMethod ===
-                        method.label
-                          ? "2px solid #6366f1"
-                          : "1px solid #e2e8f0",
-                    }}
-                  >
-                    <div style={styles.paymentIcon}>
-                      {method.icon}
-                    </div>
-
+                  { label: "UPI", icon: "📱", sub: "Instant" },
+                  { label: "CARD", icon: "💳", sub: "Debit/Credit" },
+                  { label: "COD", icon: "💵", sub: "On Delivery" },
+                  { label: "RAZORPAY", icon: "⚡", sub: "Smart Pay" },
+                ].map((m) => {
+                  const active = formData.paymentMethod === m.label;
+                  return (
                     <div
-                      style={
-                        styles.paymentTitle
-                      }
+                      key={m.label}
+                      onClick={() => setFormData({ ...formData, paymentMethod: m.label })}
+                      style={{ ...S.payCard, ...(active ? S.payCardActive : {}) }}
                     >
-                      {method.label}
+                      <span style={S.payIcon}>{m.icon}</span>
+                      <span style={{ ...S.payLabel, color: active ? "#2d6af6" : "#1c1b18" }}>{m.label}</span>
+                      <span style={S.paySub}>{m.sub}</span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
-            {/* COUPON */}
-            <div style={styles.section}>
-              <div style={styles.sectionHeader}>
-                🎁 Coupon
+            {/* Coupon section */}
+            <div style={S.section}>
+              <div style={S.sectionHead}>
+                <span style={S.sectionDot} />
+                Promo Code
               </div>
-
-              <div style={styles.couponRow}>
+              <div style={S.couponRow}>
                 <input
                   value={coupon}
-                  onChange={(e) =>
-                    setCoupon(e.target.value)
-                  }
-                  placeholder="Enter Coupon"
-                  style={styles.couponInput}
+                  onChange={(e) => setCoupon(e.target.value)}
+                  placeholder="Enter coupon code"
+                  style={{ ...S.couponInput, border: focused === "coupon" ? "1.5px solid #2d6af6" : "1.5px solid #e4e0d8" }}
+                  onFocus={() => setFocused("coupon")}
+                  onBlur={() => setFocused("")}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyCoupon())}
                 />
-
-                <button
-                  type="button"
-                  onClick={applyCoupon}
-                  style={styles.applyBtn}
-                >
-                  Apply
-                </button>
+                <button type="button" onClick={applyCoupon} style={S.applyBtn}>Apply</button>
               </div>
-
-              <div style={styles.rewardBox}>
-                ⭐ Premium reward eligible
-                order
-              </div>
+              {discount > 0 && (
+                <div style={S.couponSuccess}>
+                  🎉 ₹{discount} discount applied!
+                </div>
+              )}
+              <div style={S.rewardPill}>⭐ Premium reward eligible order</div>
             </div>
 
-            {/* BUTTON */}
+            {/* Submit */}
             <button
               type="submit"
-              disabled={placing || isRazorpayLoading}
-              style={styles.checkoutBtn}
+              disabled={isProcessing}
+              style={{ ...S.submitBtn, opacity: isProcessing ? 0.75 : 1 }}
             >
-              {placing || isRazorpayLoading
-                ? "Processing..."
-                : `Pay ₹${calculations.finalTotal.toLocaleString(
-                    "en-IN"
-                  )}`}
+              {isProcessing ? (
+                <><span style={S.btnSpinner} /> Processing…</>
+              ) : (
+                <>Pay ₹{Math.round(calculations.finalTotal).toLocaleString("en-IN")} →</>
+              )}
             </button>
           </form>
 
-          {/* RIGHT */}
-          <div style={styles.summaryCard}>
-            <div style={styles.summaryTop}>
-              <h2 style={styles.summaryTitle}>
-                Order Summary
-              </h2>
-
-              <div style={styles.delivery}>
-                🚀 Delivery by{" "}
-                {deliveryDate}
+          {/* ── RIGHT: Summary ── */}
+          <div style={S.summaryCard}>
+            <div style={S.summaryHeader}>
+              <h2 style={S.summaryTitle}>Order Summary</h2>
+              <div style={S.deliveryTag}>
+                🚀 Delivery by {deliveryDate}
               </div>
             </div>
 
-            {/* CART */}
-            <div style={styles.cartContainer}>
+            {/* Cart items */}
+            <div style={S.cartList}>
               {cart.map((item) => (
-                <div
-                  key={item.id}
-                  style={styles.cartItem}
-                >
-                  <div>
-                    <div style={styles.productName}>
-                      {item.product.name}
-                    </div>
-
-                    <div style={styles.productMeta}>
-                      Qty : {item.quantity}
-                    </div>
+                <div key={item.id} style={S.cartItem}>
+                  <div style={S.cartItemIcon}>📦</div>
+                  <div style={S.cartItemInfo}>
+                    <div style={S.cartItemName}>{item.product.name}</div>
+                    <div style={S.cartItemQty}>Qty: {item.quantity}</div>
                   </div>
-
-                  <div style={styles.price}>
-                    ₹
-                    {(
-                      item.product.price *
-                      item.quantity
-                    ).toLocaleString(
-                      "en-IN"
-                    )}
+                  <div style={S.cartItemPrice}>
+                    ₹{(item.product.price * item.quantity).toLocaleString("en-IN")}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* BILL */}
-            <div style={styles.bill}>
-              <BillRow
-                label="Subtotal"
-                value={calculations.subtotal}
-              />
-
-              <BillRow
-                label="GST"
-                value={calculations.gst}
-              />
-
-              <BillRow
-                label="Shipping"
-                value={calculations.shipping}
-              />
-
-              <BillRow
-                label="Platform Fee"
-                value={
-                  calculations.platformFee
-                }
-              />
-
-              <BillRow
-                label="Discount"
-                value={`- ₹${discount}`}
-                green
-              />
-
-              <div style={styles.totalRow}>
-                <span>Total</span>
-
-                <span>
-                  ₹
-                  {calculations.finalTotal.toLocaleString(
-                    "en-IN"
-                  )}
-                </span>
-              </div>
+            {/* Bill */}
+            <div style={S.bill}>
+              <BillRow label="Subtotal" value={calculations.subtotal} />
+              <BillRow label="GST (18%)" value={calculations.gst} />
+              <BillRow label="Shipping" value={calculations.shipping === 0 ? "Free" : calculations.shipping} green={calculations.shipping === 0} />
+              <BillRow label="Platform Fee" value={calculations.platformFee} />
+              {discount > 0 && <BillRow label="Coupon Discount" value={`-₹${discount}`} green />}
             </div>
 
-            {/* TRUST */}
-            <div style={styles.trustContainer}>
-              <div style={styles.trustItem}>
-                ✅ Secure Payment
-              </div>
+            <div style={S.totalRow}>
+              <span>Grand Total</span>
+              <span style={S.totalAmount}>₹{Math.round(calculations.finalTotal).toLocaleString("en-IN")}</span>
+            </div>
 
-              <div style={styles.trustItem}>
-                ⚡ Fast Checkout
-              </div>
-
-              <div style={styles.trustItem}>
-                🔁 Easy Returns
-              </div>
+            {/* Trust */}
+            <div style={S.trustGrid}>
+              {[["🛡", "Secure Payment"], ["⚡", "Fast Checkout"], ["🔁", "Easy Returns"], ["📍", "Live Tracking"]].map(([icon, label]) => (
+                <div key={label} style={S.trustItem}>
+                  <span style={S.trustIcon}>{icon}</span>
+                  <span>{label}</span>
+                </div>
+              ))}
             </div>
           </div>
+
         </div>
       </div>
     </div>
   );
 };
 
-/* INPUT */
-const Input = ({
-  name,
-  placeholder,
-  value,
-  onChange,
-  focused,
-  setFocused,
-}) => (
-  <input
-    type="text"
-    name={name}
-    placeholder={placeholder}
-    value={value}
-    onChange={onChange}
-    onFocus={() => setFocused(name)}
-    onBlur={() => setFocused("")}
-    style={{
-      ...styles.input,
-      border:
-        focused === name
-          ? "1.5px solid #6366f1"
-          : "1.5px solid #e2e8f0",
-    }}
-    required
-  />
+/* ─── InputField ─────────────────────────────── */
+const InputField = ({ name, type = "text", placeholder, value, onChange, focused, setFocused, highlighted }) => (
+  <div style={{ position: "relative" }}>
+    <input
+      type={type}
+      name={name}
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+      onFocus={() => setFocused(name)}
+      onBlur={() => setFocused("")}
+      style={{
+        ...S.input,
+        border: focused === name
+          ? "1.5px solid #2d6af6"
+          : highlighted
+          ? "1.5px solid #1a9c4d"
+          : "1.5px solid #e4e0d8",
+        paddingRight: highlighted ? "36px" : "16px",
+      }}
+      required
+    />
+    {highlighted && <span style={S.fieldCheck}>✓</span>}
+  </div>
 );
 
-/* BILL ROW */
-const BillRow = ({
-  label,
-  value,
-  green,
-}) => (
-  <div style={styles.billRow}>
-    <span>{label}</span>
-
-    <span
-      style={{
-        color: green ? "#16a34a" : "#0f172a",
-      }}
-    >
-      {typeof value === "number"
-        ? `₹${value.toLocaleString("en-IN")}`
-        : value}
+/* ─── BillRow ─────────────────────────────────── */
+const BillRow = ({ label, value, green }) => (
+  <div style={S.billRow}>
+    <span style={S.billLabel}>{label}</span>
+    <span style={{ ...S.billVal, color: green ? "#1a9c4d" : "#1c1b18" }}>
+      {typeof value === "number" ? `₹${Math.round(value).toLocaleString("en-IN")}` : value}
     </span>
   </div>
 );
 
-/* STYLES */
-const styles = {
+/* ─────────────────────────────────────────────
+   STYLES
+───────────────────────────────────────────────*/
+const S = {
   page: {
     minHeight: "100vh",
-    background: `
-      linear-gradient(
-        135deg,
-        #eef2ff 0%,
-        #f8fafc 40%,
-        #ffffff 100%
-      )
-    `,
-    padding: "28px",
-    position: "relative",
-    overflow: "hidden",
-    fontFamily:
-      "'Inter', 'Segoe UI', sans-serif",
+    background: "#f5f4f0",
+    padding: "36px 20px 60px",
+    fontFamily: "'Sora', 'Segoe UI', sans-serif",
   },
-
-  overlay: {
-    position: "absolute",
-    inset: 0,
-    background: `
-      radial-gradient(
-        circle at top right,
-        rgba(99,102,241,0.10),
-        transparent 35%
-      ),
-      radial-gradient(
-        circle at bottom left,
-        rgba(168,85,247,0.08),
-        transparent 30%
-      )
-    `,
-  },
-
   wrapper: {
-    position: "relative",
-    zIndex: 2,
-    maxWidth: "1380px",
+    maxWidth: 1260,
     margin: "0 auto",
   },
 
+  /* header */
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "24px",
+    marginBottom: 28,
     flexWrap: "wrap",
-    gap: "14px",
+    gap: 14,
   },
-
   heading: {
-    fontSize: "48px",
-    fontWeight: "900",
-    lineHeight: "1",
-    letterSpacing: "-2px",
-    background:
-      "linear-gradient(135deg,#312e81,#7c3aed,#2563eb)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    marginBottom: "8px",
+    fontSize: 36,
+    fontWeight: 800,
+    letterSpacing: "-1.2px",
+    color: "#1c1b18",
+    marginBottom: 4,
+  },
+  subheading: { fontSize: 14, color: "#9e9b94", fontWeight: 500 },
+  sslBadge: {
+    display: "flex", alignItems: "center", gap: 7,
+    background: "#fff",
+    border: "1px solid #e4e0d8",
+    borderRadius: 100,
+    padding: "8px 18px",
+    fontSize: 13, fontWeight: 600,
+    color: "#3d3a34",
   },
 
-  subheading: {
-    color: "#475569",
-    fontSize: "16px",
-    fontWeight: "500",
-  },
-
-  securityBadge: {
-    background:
-      "linear-gradient(135deg,#4f46e5,#7c3aed)",
-    color: "white",
-    padding: "12px 22px",
-    borderRadius: "50px",
-    fontWeight: "700",
-    boxShadow:
-      "0 12px 28px rgba(99,102,241,0.20)",
-  },
-
+  /* layout */
   layout: {
     display: "grid",
-    gridTemplateColumns:
-      "1.25fr 0.85fr",
-    gap: "20px",
+    gridTemplateColumns: "1.3fr 0.8fr",
+    gap: 20,
     alignItems: "start",
   },
 
+  /* form card */
   formCard: {
-    background:
-      "rgba(255,255,255,0.82)",
-    border:
-      "1px solid rgba(255,255,255,0.9)",
-    borderRadius: "30px",
-    padding: "28px",
-    backdropFilter: "blur(24px)",
-    boxShadow:
-      "0 20px 60px rgba(99,102,241,0.10)",
-  },
-
-  summaryCard: {
-    background:
-      "rgba(255,255,255,0.84)",
-    border:
-      "1px solid rgba(255,255,255,0.9)",
-    borderRadius: "30px",
-    padding: "24px",
-    backdropFilter: "blur(24px)",
-    boxShadow:
-      "0 20px 60px rgba(15,23,42,0.08)",
-    position: "sticky",
-    top: "20px",
-    height: "fit-content",
-  },
-
-  section: {
-    marginBottom: "22px",
-  },
-
-  sectionHeader: {
-    color: "#0f172a",
-    fontSize: "20px",
-    fontWeight: "800",
-    marginBottom: "16px",
-  },
-
-  grid2: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "14px",
-    marginBottom: "14px",
-  },
-
-  input: {
-    width: "100%",
-    padding: "15px 16px",
-    borderRadius: "16px",
     background: "#ffffff",
-    color: "#0f172a",
-    outline: "none",
-    fontSize: "14px",
-    transition: "all 0.3s ease",
-    boxSizing: "border-box",
-    boxShadow:
-      "0 4px 10px rgba(15,23,42,0.03)",
+    border: "1px solid #e8e4dc",
+    borderRadius: 20,
+    padding: "28px 28px 24px",
+    boxShadow: "0 2px 16px rgba(0,0,0,0.05)",
+  },
+  section: { marginBottom: 26 },
+  sectionHead: {
+    display: "flex", alignItems: "center", gap: 8,
+    fontSize: 16, fontWeight: 700,
+    color: "#1c1b18", marginBottom: 16,
+  },
+  sectionDot: {
+    width: 8, height: 8, borderRadius: "50%",
+    background: "#2d6af6", flexShrink: 0,
+    display: "inline-block",
   },
 
-  textarea: {
-    width: "100%",
-    minHeight: "95px",
-    borderRadius: "16px",
-    padding: "16px",
-    background: "#ffffff",
-    border: "1.5px solid #e2e8f0",
-    color: "#0f172a",
-    outline: "none",
-    fontSize: "14px",
-    resize: "none",
-    boxSizing: "border-box",
+  /* location */
+  locRow: {
+    display: "flex", alignItems: "center", gap: 10,
+    marginBottom: 16, flexWrap: "wrap",
   },
-
-paymentGrid: {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",  // Responsive
-  gap: "12px",
-},
-
-  paymentCard: {
-    padding: "16px",
-    borderRadius: "18px",
-    background:
-      "linear-gradient(145deg,#ffffff,#f8fafc)",
+  locBtn: {
+    display: "inline-flex", alignItems: "center", gap: 7,
+    padding: "9px 16px",
+    borderRadius: 10,
+    border: "1.5px solid #2d6af6",
+    background: "#eff6ff",
+    color: "#2d6af6",
+    fontSize: 13, fontWeight: 600,
     cursor: "pointer",
-    transition: "0.3s",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    minHeight: "110px",
-    boxShadow:
-      "0 8px 18px rgba(15,23,42,0.04)",
+    transition: "all 0.2s",
+  },
+  locBtnActive: {
+    background: "#dbeafe",
+    color: "#1d4ed8",
+    animation: "copulse 1.2s ease infinite",
+  },
+  locSpinner: {
+    display: "inline-block",
+    width: 12, height: 12,
+    border: "2px solid #93c5fd",
+    borderTopColor: "#2d6af6",
+    borderRadius: "50%",
+    animation: "cospin 0.8s linear infinite",
+    flexShrink: 0,
+  },
+  locBadge: {
+    display: "inline-flex", alignItems: "center", gap: 5,
+    padding: "5px 12px",
+    borderRadius: 100,
+    background: "#f0faf4",
+    border: "1px solid #b6e8c8",
+    color: "#1a9c4d",
+    fontSize: 12, fontWeight: 600,
+    animation: "coslide 0.3s ease",
   },
 
-  paymentIcon: {
-    fontSize: "28px",
+  /* inputs */
+  grid2: {
+    display: "grid", gridTemplateColumns: "1fr 1fr",
+    gap: 12, marginBottom: 12,
+  },
+  input: {
+    width: "100%", padding: "13px 16px",
+    borderRadius: 12, fontSize: 14,
+    color: "#1c1b18", background: "#fafaf8",
+    outline: "none", boxSizing: "border-box",
+    transition: "border 0.2s, background 0.2s",
+    fontFamily: "inherit",
+  },
+  textarea: {
+    width: "100%", minHeight: 90,
+    borderRadius: 12, padding: "13px 16px",
+    fontSize: 14, color: "#1c1b18",
+    background: "#fafaf8", outline: "none",
+    resize: "vertical", boxSizing: "border-box",
+    fontFamily: "inherit", transition: "border 0.2s",
+  },
+  fieldCheck: {
+    position: "absolute", right: 12,
+    top: "50%", transform: "translateY(-50%)",
+    color: "#1a9c4d", fontWeight: 700, fontSize: 14,
+    pointerEvents: "none",
   },
 
-  paymentTitle: {
-    color: "#0f172a",
-    fontWeight: "700",
+  /* payment */
+  payGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: 10,
   },
-
-  couponRow: {
-    display: "flex",
-    gap: "10px",
+  payCard: {
+    padding: "14px 10px",
+    borderRadius: 14,
+    border: "1.5px solid #e4e0d8",
+    background: "#fafaf8",
+    cursor: "pointer",
+    display: "flex", flexDirection: "column",
+    alignItems: "center", gap: 5,
+    transition: "all 0.2s",
   },
+  payCardActive: {
+    border: "1.5px solid #2d6af6",
+    background: "#eff6ff",
+    boxShadow: "0 0 0 3px rgba(45,106,246,0.1)",
+  },
+  payIcon: { fontSize: 22 },
+  payLabel: { fontSize: 12, fontWeight: 700 },
+  paySub: { fontSize: 10, color: "#9e9b94" },
 
+  /* coupon */
+  couponRow: { display: "flex", gap: 10, marginBottom: 10 },
   couponInput: {
-    flex: 1,
-    padding: "14px",
-    borderRadius: "16px",
-    background: "#ffffff",
-    border: "1.5px solid #e2e8f0",
-    color: "#0f172a",
-    outline: "none",
+    flex: 1, padding: "12px 14px",
+    borderRadius: 12, fontSize: 14,
+    color: "#1c1b18", background: "#fafaf8",
+    outline: "none", fontFamily: "inherit",
+    transition: "border 0.2s",
   },
-
   applyBtn: {
     padding: "0 20px",
-    borderRadius: "16px",
-    border: "none",
-    background:
-      "linear-gradient(135deg,#6366f1,#8b5cf6)",
-    color: "white",
-    fontWeight: "700",
-    cursor: "pointer",
+    borderRadius: 12, border: "none",
+    background: "#1c1b18", color: "#fff",
+    fontWeight: 700, fontSize: 14,
+    cursor: "pointer", fontFamily: "inherit",
+    letterSpacing: "-0.2px",
+  },
+  couponSuccess: {
+    padding: "9px 14px", borderRadius: 10,
+    background: "#f0faf4", border: "1px solid #b6e8c8",
+    color: "#1a9c4d", fontSize: 13, fontWeight: 600,
+    marginBottom: 10, animation: "coslide 0.3s ease",
+  },
+  rewardPill: {
+    padding: "9px 14px", borderRadius: 10,
+    background: "#fffbeb", border: "1px solid #fde68a",
+    color: "#92400e", fontSize: 13, fontWeight: 600,
   },
 
-  rewardBox: {
-    marginTop: "12px",
-    background:
-      "linear-gradient(135deg,#ede9fe,#eff6ff)",
-    padding: "14px",
-    borderRadius: "16px",
-    color: "#4c1d95",
-    fontWeight: "600",
-    fontSize: "14px",
+  /* submit */
+  submitBtn: {
+    width: "100%", padding: "15px",
+    border: "none", borderRadius: 14,
+    background: "#1c1b18", color: "#fff",
+    fontSize: 16, fontWeight: 700,
+    cursor: "pointer", fontFamily: "inherit",
+    letterSpacing: "-0.3px",
+    display: "flex", alignItems: "center",
+    justifyContent: "center", gap: 8,
+    transition: "opacity 0.2s, transform 0.1s",
+  },
+  btnSpinner: {
+    width: 16, height: 16,
+    border: "2px solid rgba(255,255,255,0.3)",
+    borderTopColor: "#fff",
+    borderRadius: "50%",
+    display: "inline-block",
+    animation: "cospin 0.8s linear infinite",
   },
 
-  checkoutBtn: {
-    width: "100%",
-    padding: "18px",
-    border: "none",
-    borderRadius: "18px",
-    background:
-      "linear-gradient(135deg,#4f46e5,#7c3aed)",
-    color: "white",
-    fontSize: "17px",
-    fontWeight: "800",
-    cursor: "pointer",
-    boxShadow:
-      "0 16px 34px rgba(99,102,241,0.25)",
+  /* summary card */
+  summaryCard: {
+    background: "#ffffff",
+    border: "1px solid #e8e4dc",
+    borderRadius: 20,
+    padding: "24px",
+    boxShadow: "0 2px 16px rgba(0,0,0,0.05)",
+    position: "sticky", top: 20,
+    height: "fit-content",
   },
-
-  summaryTop: {
-    marginBottom: "18px",
-  },
-
+  summaryHeader: { marginBottom: 18 },
   summaryTitle: {
-    color: "#0f172a",
-    fontSize: "28px",
-    fontWeight: "900",
+    fontSize: 20, fontWeight: 800,
+    color: "#1c1b18", marginBottom: 6,
+    letterSpacing: "-0.5px",
+  },
+  deliveryTag: {
+    display: "inline-block",
+    background: "#f0faf4",
+    border: "1px solid #b6e8c8",
+    borderRadius: 100, padding: "4px 12px",
+    fontSize: 12, fontWeight: 600, color: "#1a9c4d",
   },
 
-  delivery: {
-    color: "#16a34a",
-    marginTop: "6px",
-    fontWeight: "600",
-  },
-
-  cartContainer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    marginBottom: "18px",
-  },
-
+  /* cart items */
+  cartList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 },
   cartItem: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    background:
-      "linear-gradient(145deg,#ffffff,#f8fafc)",
-    padding: "14px 16px",
-    borderRadius: "16px",
-    boxShadow:
-      "0 6px 14px rgba(15,23,42,0.04)",
+    display: "flex", alignItems: "center", gap: 10,
+    padding: "10px 12px",
+    background: "#fafaf8",
+    border: "1px solid #eeece6",
+    borderRadius: 12,
   },
-
-  productName: {
-    color: "#0f172a",
-    fontWeight: "700",
+  cartItemIcon: { fontSize: 20, flexShrink: 0 },
+  cartItemInfo: { flex: 1, minWidth: 0 },
+  cartItemName: {
+    fontSize: 13, fontWeight: 600, color: "#1c1b18",
+    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
   },
+  cartItemQty: { fontSize: 11, color: "#9e9b94", marginTop: 2 },
+  cartItemPrice: { fontSize: 13, fontWeight: 700, color: "#1c1b18", flexShrink: 0 },
 
-  productMeta: {
-    color: "#64748b",
-    marginTop: "4px",
-    fontSize: "13px",
-  },
-
-  price: {
-    color: "#0f172a",
-    fontWeight: "800",
-    fontSize: "16px",
-  },
-
-  bill: {
-    marginTop: "20px",
-  },
-
+  /* bill */
+  bill: { borderTop: "1px solid #eeece6", paddingTop: 14, marginBottom: 4 },
   billRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    color: "#475569",
-    marginBottom: "14px",
-    fontWeight: "500",
+    display: "flex", justifyContent: "space-between",
+    padding: "5px 0", fontSize: 13,
   },
-
+  billLabel: { color: "#6e6b63" },
+  billVal: { fontWeight: 500 },
   totalRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    color: "#0f172a",
-    fontWeight: "900",
-    fontSize: "26px",
-    borderTop: "1px solid #e2e8f0",
-    paddingTop: "20px",
-    marginTop: "16px",
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    borderTop: "1.5px solid #1c1b18",
+    paddingTop: 14, marginTop: 8,
+    fontSize: 16, fontWeight: 800, color: "#1c1b18",
   },
+  totalAmount: { fontSize: 20, letterSpacing: "-0.5px" },
 
-  trustContainer: {
-    display: "grid",
-    gap: "10px",
-    marginTop: "18px",
+  /* trust */
+  trustGrid: {
+    display: "grid", gridTemplateColumns: "1fr 1fr",
+    gap: 8, marginTop: 18,
   },
-
   trustItem: {
-    background:
-      "linear-gradient(145deg,#ffffff,#f8fafc)",
-    padding: "13px 14px",
-    borderRadius: "14px",
-    color: "#0f172a",
-    fontWeight: "600",
-    fontSize: "14px",
+    display: "flex", alignItems: "center", gap: 7,
+    padding: "8px 10px",
+    background: "#fafaf8",
+    border: "1px solid #eeece6",
+    borderRadius: 10,
+    fontSize: 12, fontWeight: 500, color: "#3d3a34",
   },
+  trustIcon: { fontSize: 15 },
 
+  /* loader / empty */
   loaderPage: {
     minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "column",
-    gap: "20px",
-    background: "#f8fafc",
+    display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center",
+    background: "#f5f4f0", gap: 16,
+    fontFamily: "'Sora', sans-serif",
   },
-
-  loader: {
-    width: "60px",
-    height: "60px",
-    border:
-      "4px solid rgba(99,102,241,0.15)",
-    borderTop: "4px solid #6366f1",
+  loaderRing: {
+    width: 44, height: 44,
+    border: "3px solid #e4e0d8",
+    borderTopColor: "#2d6af6",
     borderRadius: "50%",
-    animation:
-      "spin 1s linear infinite",
+    animation: "cospin 0.9s linear infinite",
   },
-
-  loaderText: {
-    color: "#0f172a",
-  },
-
-  emptyCart: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "20px",
-    background: "#f8fafc",
-  },
-
+  loaderText: { fontSize: 14, color: "#9e9b94", fontWeight: 500 },
+  emptyIcon: { fontSize: 48 },
+  emptyTitle: { fontSize: 20, fontWeight: 700, color: "#1c1b18" },
   shopBtn: {
-    padding: "14px 24px",
-    border: "none",
-    borderRadius: "14px",
-    background:
-      "linear-gradient(135deg,#4f46e5,#7c3aed)",
-    color: "white",
-    fontWeight: "700",
-    cursor: "pointer",
+    padding: "12px 24px",
+    borderRadius: 12, border: "none",
+    background: "#1c1b18", color: "#fff",
+    fontWeight: 700, fontSize: 15,
+    cursor: "pointer", fontFamily: "'Sora', sans-serif",
   },
 };
-
-const style =
-  document.createElement("style");
-
-style.innerHTML = `
-@keyframes spin{
-  0%{
-    transform:rotate(0deg);
-  }
-  100%{
-    transform:rotate(360deg);
-  }
-}
-
-body{
-  margin:0;
-  padding:0;
-  background:#f8fafc;
-}
-
-input::placeholder,
-textarea::placeholder{
-  color:#94a3b8;
-}
-
-@media(max-width: 1000px){
-  div[style*="grid-template-columns: 1.25fr 0.85fr"]{
-    grid-template-columns:1fr !important;
-  }
-}
-`;
-
-document.head.appendChild(style);
 
 export default Checkout;

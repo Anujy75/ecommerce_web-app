@@ -3,35 +3,27 @@ import { useEffect, useState } from "react";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const [token, setToken] = useState(localStorage.getItem("customerToken") || localStorage.getItem("adminToken") || localStorage.getItem("token"));
+  const [token, setToken] = useState(
+    localStorage.getItem("customerToken") ||
+    localStorage.getItem("adminToken") ||
+    localStorage.getItem("token")
+  );
   const [role, setRole] = useState(localStorage.getItem("role"));
 
-  // ✅ Refresh or route change pe navbar update ho
   useEffect(() => {
     const updateNavbar = () => {
-      setToken(localStorage.getItem("customerToken") || localStorage.getItem("adminToken") || localStorage.getItem("token"));
+      setToken(
+        localStorage.getItem("customerToken") ||
+        localStorage.getItem("adminToken") ||
+        localStorage.getItem("token")
+      );
       setRole(localStorage.getItem("role"));
     };
-    
+
     updateNavbar();
     window.addEventListener("storage", updateNavbar);
     return () => window.removeEventListener("storage", updateNavbar);
   }, []);
-
-  useEffect(() => {
-    setToken(localStorage.getItem("customerToken") || localStorage.getItem("adminToken") || localStorage.getItem("token"));
-    setRole(localStorage.getItem("role"));
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("customerToken");
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("role");
-    setToken(null);
-    setRole(null);
-    navigate("/portal");
-  };
 
   return (
     <nav style={{
@@ -46,7 +38,7 @@ const Navbar = () => {
       <h2 style={{ margin: 0, cursor: "pointer" }} onClick={() => navigate("/")}>
         🛒 ShopEase
       </h2>
-      
+
       <div style={{ display: "flex", gap: "25px", alignItems: "center", flexWrap: "wrap" }}>
         {!token && (
           <a href="/portal" style={{ color: "white", textDecoration: "none" }}>Login Portal</a>
@@ -56,16 +48,14 @@ const Navbar = () => {
           <>
             <a href="/" style={{ color: "white", textDecoration: "none" }}>Home</a>
             <a href="/products" style={{ color: "white", textDecoration: "none" }}>Products</a>
-            <a href="/cart" style={{ color: "white", textDecoration: "none" }}>Cart 🛒</a>
+            <a href="/cart" style={{ color: "white", textDecoration: "none" }}>Cart </a>
             <a href="/dashboard" style={{ color: "white", textDecoration: "none" }}>Dashboard</a>
-            <a href="/orders" style={{ color: "white", textDecoration: "none" }}>Orders 📋</a>  {/* ✅ Orders Link Added */}
+            <a href="/orders" style={{ color: "white", textDecoration: "none" }}>Orders </a>
           </>
         )}
 
         {token && role === "ADMIN" && (
-          <>
-            <a href="/admin/dashboard" style={{ color: "white", textDecoration: "none" }}>Admin Dashboard</a>
-          </>
+          <a href="/admin/dashboard" style={{ color: "white", textDecoration: "none" }}>Admin Dashboard</a>
         )}
 
         {token && (
@@ -83,24 +73,6 @@ const Navbar = () => {
             }}
           >
             👤
-          </button>
-        )}
-        
-        {token && (
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: "8px 20px",
-              backgroundColor: "#dc3545",
-              color: "white",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "bold"
-            }}
-          >
-            Logout 🚪
           </button>
         )}
       </div>
