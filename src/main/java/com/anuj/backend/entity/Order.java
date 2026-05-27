@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+
 @Entity
 @Table(name = "orders")
 @Data
@@ -55,6 +56,10 @@ public class Order {
     private String address;
     private String city;
     private String pincode;
+    // Add these fields to your Order entity
+    private String razorpayOrderId;
+    private String razorpayPaymentId;
+    private String razorpaySignature;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;

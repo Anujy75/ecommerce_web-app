@@ -73,12 +73,23 @@ public class OrderController {
             order.setGrandTotal(grandTotal);
             order.setPaymentMethod(request.getPaymentMethod());
 
+            // ✅ FIX: Payment method ke hisaab se status set karo
             if (request.getPaymentMethod().equals("COD")) {
                 order.setPaymentStatus("PENDING");
                 order.setOrderStatus("PENDING");
+            } else if (request.getPaymentMethod().equals("RAZORPAY")) {
+                // Razorpay ke liye temporary status - payment verification ke baad update hoga
+                order.setPaymentStatus("PENDING");
+                order.setOrderStatus("PENDING");
             } else {
+                // CARD, UPI, NETBANKING etc - assume paid immediately
                 order.setPaymentStatus("PAID");
                 order.setOrderStatus("CONFIRMED");
+            }
+
+            // Store Razorpay order ID if provided
+            if (request.getRazorpayOrderId() != null) {
+                order.setRazorpayOrderId(request.getRazorpayOrderId());
             }
 
             order.setFullName(request.getFullName());
@@ -124,9 +135,9 @@ public class OrderController {
         }
     }
 
-    // ✅ T053: Get all orders for current user (with @Transactional)
+    // ✅ Get all orders for current user
     @GetMapping("/user")
-    @Transactional  // ✅ Added this line to fix lazy loading error
+    @Transactional
     public ResponseEntity<?> getUserOrders() {
         try {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -144,6 +155,7 @@ public class OrderController {
                 orderData.put("paymentStatus", order.getPaymentStatus());
                 orderData.put("createdAt", order.getCreatedAt());
                 orderData.put("itemsCount", order.getItems().size());
+                orderData.put("paymentMethod", order.getPaymentMethod());
                 response.add(orderData);
             }
 
@@ -170,6 +182,43 @@ public class OrderController {
             response.put("shippingCharges", order.getShippingCharges());
             response.put("items", order.getItems());
             response.put("createdAt", order.getCreatedAt());
+            response.put("paymentMethod", order.getPaymentMethod());
+            response.put("razorpayOrderId", order.getRazorpayOrderId());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ✅ Update order status after payment verification
+    @PatchMapping("/{orderId}/payment-status")
+    @Transactional
+    public ResponseEntity<?> updatePaymentStatus(@PathVariable String orderId, @RequestBody Map<String, String> request) {
+        try {
+            Order order = orderRepository.findByOrderId(orderId)
+                    .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+
+            String paymentId = request.get("paymentId");
+            String status = request.get("status");
+
+            if ("SUCCESS".equals(status)) {
+                order.setPaymentStatus("PAID");
+                order.setOrderStatus("CONFIRMED");
+                if (paymentId != null) {
+                    order.setRazorpayPaymentId(paymentId);
+                }
+            } else {
+                order.setPaymentStatus("FAILED");
+                order.setOrderStatus("PENDING");
+            }
+
+            orderRepository.save(order);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Payment status updated");
+            response.put("orderStatus", order.getOrderStatus());
+            response.put("paymentStatus", order.getPaymentStatus());
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

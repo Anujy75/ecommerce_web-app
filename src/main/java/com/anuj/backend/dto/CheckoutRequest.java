@@ -10,5 +10,11 @@ public class CheckoutRequest {
     private String address;
     private String city;
     private String pincode;
-    private String paymentMethod; // COD, CARD, UPI
+    private String paymentMethod;
+    private Integer discount;
+    private Double totalAmount;
+
+    // Razorpay fields
+    private String razorpayPaymentId;
+    private String razorpayOrderId;
 }
