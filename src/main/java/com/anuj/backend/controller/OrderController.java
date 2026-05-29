@@ -73,22 +73,26 @@ public class OrderController {
             order.setGrandTotal(grandTotal);
             order.setPaymentMethod(request.getPaymentMethod());
 
-            // ✅ FIX: Payment method ke hisaab se status set karo
+            // ✅ Payment method ke hisaab se initial status set karo
             if (request.getPaymentMethod().equals("COD")) {
                 order.setPaymentStatus("PENDING");
                 order.setOrderStatus("PENDING");
             } else if (request.getPaymentMethod().equals("RAZORPAY")) {
-                // Razorpay ke liye temporary status - payment verification ke baad update hoga
-                order.setPaymentStatus("PENDING");
-                order.setOrderStatus("PENDING");
-            } else {
-                // CARD, UPI, NETBANKING etc - assume paid immediately
+            // Payment ID aa gayi = payment already verified hai frontend pe
+            if (request.getRazorpayPaymentId() != null
+                    && !request.getRazorpayPaymentId().isEmpty()) {
                 order.setPaymentStatus("PAID");
                 order.setOrderStatus("CONFIRMED");
+                order.setRazorpayPaymentId(request.getRazorpayPaymentId());
+            } else {
+                order.setPaymentStatus("PENDING");
+                order.setOrderStatus("PENDING");
             }
+        }
+
 
             // Store Razorpay order ID if provided
-            if (request.getRazorpayOrderId() != null) {
+            if (request.getRazorpayOrderId() != null && !request.getRazorpayOrderId().isEmpty()) {
                 order.setRazorpayOrderId(request.getRazorpayOrderId());
             }
 
@@ -183,7 +187,12 @@ public class OrderController {
             response.put("items", order.getItems());
             response.put("createdAt", order.getCreatedAt());
             response.put("paymentMethod", order.getPaymentMethod());
-            response.put("razorpayOrderId", order.getRazorpayOrderId());
+            if (order.getRazorpayOrderId() != null) {
+                response.put("razorpayOrderId", order.getRazorpayOrderId());
+            }
+            if (order.getRazorpayPaymentId() != null) {
+                response.put("razorpayPaymentId", order.getRazorpayPaymentId());
+            }
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -191,26 +200,35 @@ public class OrderController {
         }
     }
 
-    // ✅ Update order status after payment verification
+    // ✅ Update order status after payment verification (Razorpay)
     @PatchMapping("/{orderId}/payment-status")
     @Transactional
     public ResponseEntity<?> updatePaymentStatus(@PathVariable String orderId, @RequestBody Map<String, String> request) {
         try {
+            System.out.println("=== PAYMENT STATUS UPDATE CALLED ===");
+            System.out.println("Order ID: " + orderId);
+            System.out.println("Request: " + request);
+
             Order order = orderRepository.findByOrderId(orderId)
                     .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
             String paymentId = request.get("paymentId");
             String status = request.get("status");
 
+            System.out.println("Current order status: " + order.getOrderStatus());
+            System.out.println("Current payment status: " + order.getPaymentStatus());
+
             if ("SUCCESS".equals(status)) {
                 order.setPaymentStatus("PAID");
                 order.setOrderStatus("CONFIRMED");
-                if (paymentId != null) {
+                if (paymentId != null && !paymentId.isEmpty()) {
                     order.setRazorpayPaymentId(paymentId);
                 }
+                System.out.println("✅ Order updated to CONFIRMED & PAID");
             } else {
                 order.setPaymentStatus("FAILED");
                 order.setOrderStatus("PENDING");
+                System.out.println("❌ Order payment failed");
             }
 
             orderRepository.save(order);
@@ -222,6 +240,7 @@ public class OrderController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            System.err.println("Error updating payment status: " + e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
