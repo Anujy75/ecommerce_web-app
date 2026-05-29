@@ -25,22 +25,16 @@ function App() {
       <BrowserRouter>
         <Navbar />
         <Routes>
-          {/* ✅ Root path - Conditional based on login */}
-          <Route path="/" element={
-            (localStorage.getItem("customerToken") || localStorage.getItem("adminToken")) ? (
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            ) : (
-              <Navigate to="/portal" replace />
-            )
-          } />
-          
+          {/* ✅ Root always redirects to /portal */}
+          <Route path="/" element={<Navigate to="/portal" replace />} />
+
+          {/* Public routes */}
           <Route path="/portal" element={<LoginPortal />} />
           <Route path="/login/user" element={<Login />} />   
           <Route path="/login/admin" element={<AdminLogin />} />
           <Route path="/register" element={<Register />} />
           
+          {/* Protected routes */}
           <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
           <Route path="/product/:id" element={<ProtectedRoute><ProductDetails /></ProtectedRoute>} />

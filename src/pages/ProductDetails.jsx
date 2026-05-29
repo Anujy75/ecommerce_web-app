@@ -1,740 +1,712 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "../services/api";
 
-const ProductDetails = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
-  const [added, setAdded] = useState(false);
-  const [selectedColor, setSelectedColor] = useState("");
-  const [selectedSize, setSelectedSize] = useState("");
-  const [deliveryPincode, setDeliveryPincode] = useState("");
-  const [deliveryMsg, setDeliveryMsg] = useState("");
-  const [activeImage, setActiveImage] = useState(0);
+/* ─────────────────────────────────────────────
+   Static mock data – replace with real API data
+───────────────────────────────────────────── */
+const COLORS = ["Midnight", "Pearl", "Cobalt", "Forest", "Crimson"];
+const SIZES  = ["XS", "S", "M", "L", "XL"];
+const SPECS  = [
+  ["Display",       "6.1″ Super Retina XDR"],
+  ["Processor",     "A16 Bionic Chip"],
+  ["RAM",           "6 GB"],
+  ["Storage",       "128 GB / 256 GB / 512 GB"],
+  ["Rear Camera",   "48 MP + 12 MP + 12 MP"],
+  ["Front Camera",  "12 MP"],
+  ["Battery",       "3,279 mAh"],
+  ["OS",            "iOS 17"],
+  ["Water Rating",  "IP68"],
+];
 
-  // Mock data for colors, sizes, specifications
-  const mockColors = ["Black", "White", "Blue", "Green", "Red"];
-  const mockSizes = ["S", "M", "L", "XL", "XXL"];
-  
-  const mockSpecs = {
-    "Display": "6.1-inch Super Retina XDR",
-    "Processor": "A16 Bionic Chip",
-    "RAM": "6GB",
-    "Storage": "128GB / 256GB / 512GB",
-    "Camera": "48MP + 12MP + 12MP",
-    "Front Camera": "12MP",
-    "Battery": "3279 mAh",
-    "OS": "iOS 17",
-    "Water Resistant": "IP68",
-  };
-
-useEffect(() => {
-  API.get(`/products/${id}`)
-    .then((res) => {
-      setProduct(res.data);
-      setSelectedColor(mockColors[0]);
-      setSelectedSize(mockSizes[1]);
-      setLoading(false);
-    })
-    .catch((err) => {
-      console.error(err);
-      setLoading(false);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [id]);
-
-  const handleQuantityChange = (type) => {
-    if (type === "increase" && quantity < product?.stock) {
-      setQuantity(quantity + 1);
-    } else if (type === "decrease" && quantity > 1) {
-      setQuantity(quantity - 1);
-    }
-  };
-
-  const handleAddToCart = () => {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const existingItem = cart.find((item) => item.id === product.id);
-
-    if (existingItem) {
-      existingItem.quantity += quantity;
-    } else {
-      cart.push({ 
-        ...product, 
-        quantity,
-        selectedColor,
-        selectedSize
-      });
-    }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
-  };
-
-  const handleBuyNow = () => {
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const existingItem = cart.find((item) => item.id === product.id);
-
-    if (existingItem) {
-      existingItem.quantity += quantity;
-    } else {
-      cart.push({ ...product, quantity, selectedColor, selectedSize });
-    }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    navigate("/checkout");
-  };
-
-  const checkDelivery = () => {
-    if (deliveryPincode.length === 6) {
-      setDeliveryMsg("✅ Delivery available within 3-4 business days");
-    } else {
-      setDeliveryMsg("❌ Please enter valid 6-digit pincode");
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={styles.loading}>
-        <div style={styles.spinner}></div>
-        <p>Loading product details...</p>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div style={styles.notFound}>
-        <h2>Product not found</h2>
-        <button onClick={() => navigate("/products")}>Back to Products</button>
-      </div>
-    );
-  }
-
-  return (
-    <div style={styles.page}>
-      <button style={styles.backBtn} onClick={() => navigate("/products")}>
-        ← Back to Products
-      </button>
-
-      <div style={styles.container}>
-        {/* Left Side - Image Gallery */}
-        <div style={styles.imageSection}>
-          <div style={styles.mainImage}>
-            {product.imageUrl ? (
-              <img src={product.imageUrl} alt={product.name} style={styles.image} />
-            ) : (
-              <div style={styles.imagePlaceholder}>🛍️</div>
-            )}
-          </div>
-          <div style={styles.thumbnailRow}>
-            {[0, 1, 2, 3].map((index) => (
-              <div
-                key={index}
-                style={{...styles.thumbnail, border: activeImage === index ? "2px solid #667eea" : "1px solid #e2e8f0"}}
-                onClick={() => setActiveImage(index)}
-              >
-                {product.imageUrl ? (
-                  <img src={product.imageUrl} alt={`view ${index}`} style={styles.thumbImg} />
-                ) : (
-                  <span>🛍️</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right Side - Details */}
-        <div style={styles.detailsSection}>
-          <div style={styles.brand}>ShopEase Exclusive</div>
-          <h1 style={styles.name}>{product.name}</h1>
-          <div style={styles.ratingRow}>
-            <span style={styles.rating}>⭐ 4.5</span>
-            <span style={styles.reviewCount}>(1,234 ratings)</span>
-          </div>
-
-          <div style={styles.priceSection}>
-            <span style={styles.price}>₹{product.price?.toLocaleString("en-IN")}</span>
-            <span style={styles.mrp}>MRP: ₹{(product.price * 1.2).toLocaleString("en-IN")}</span>
-            <span style={styles.discount}>20% off</span>
-          </div>
-
-          {product.stock > 0 ? (
-            <div style={styles.stockStatus}>
-              <span style={styles.inStock}>✅ In Stock</span>
-            </div>
-          ) : (
-            <div style={styles.stockStatus}>
-              <span style={styles.outStock}>❌ Out of Stock</span>
-            </div>
-          )}
-
-          {/* Color Options */}
-          <div style={styles.optionSection}>
-            <label style={styles.optionLabel}>Color:</label>
-            <div style={styles.colorOptions}>
-              {mockColors.map((color) => (
-                <button
-                  key={color}
-                  style={{
-                    ...styles.colorBtn,
-                    background: color.toLowerCase(),
-                    border: selectedColor === color ? "2px solid #667eea" : "1px solid #e2e8f0",
-                    boxShadow: selectedColor === color ? "0 0 0 2px #667eea" : "none",
-                  }}
-                  onClick={() => setSelectedColor(color)}
-                >
-                  {color === "White" || color === "Black" ? "" : ""}
-                </button>
-              ))}
-            </div>
-            <span style={styles.selectedValue}>Selected: {selectedColor}</span>
-          </div>
-
-          {/* Size Options */}
-          <div style={styles.optionSection}>
-            <label style={styles.optionLabel}>Size:</label>
-            <div style={styles.sizeOptions}>
-              {mockSizes.map((size) => (
-                <button
-                  key={size}
-                  style={{
-                    ...styles.sizeBtn,
-                    background: selectedSize === size ? "#667eea" : "#f1f5f9",
-                    color: selectedSize === size ? "white" : "#334155",
-                  }}
-                  onClick={() => setSelectedSize(size)}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-            <span style={styles.selectedValue}>Selected: {selectedSize}</span>
-          </div>
-
-          {/* Quantity Selector */}
-          {product.stock > 0 && (
-            <div style={styles.quantitySection}>
-              <label style={styles.quantityLabel}>Quantity:</label>
-              <div style={styles.quantitySelector}>
-                <button
-                  style={styles.qtyBtn}
-                  onClick={() => handleQuantityChange("decrease")}
-                  disabled={quantity <= 1}
-                >
-                  −
-                </button>
-                <span style={styles.quantity}>{quantity}</span>
-                <button
-                  style={styles.qtyBtn}
-                  onClick={() => handleQuantityChange("increase")}
-                  disabled={quantity >= product.stock}
-                >
-                  +
-                </button>
-              </div>
-              <span style={styles.maxQty}>Max {product.stock} units</span>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={styles.buttonGroup}>
-            <button
-              style={added ? styles.addedBtn : styles.addToCartBtn}
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-            >
-              {added ? "✓ Added to Cart!" : "🛒 Add to Cart"}
-            </button>
-            <button
-              style={product.stock > 0 ? styles.buyNowBtn : styles.disabledBuyBtn}
-              onClick={handleBuyNow}
-              disabled={product.stock === 0}
-            >
-              ⚡ Buy Now
-            </button>
-          </div>
-
-          {/* Delivery Checker */}
-          <div style={styles.deliverySection}>
-            <label style={styles.optionLabel}>Check Delivery:</label>
-            <div style={styles.pincodeBox}>
-              <input
-                type="text"
-                placeholder="Enter pincode"
-                value={deliveryPincode}
-                onChange={(e) => setDeliveryPincode(e.target.value)}
-                maxLength="6"
-                style={styles.pincodeInput}
-              />
-              <button style={styles.checkBtn} onClick={checkDelivery}>
-                Check
-              </button>
-            </div>
-            {deliveryMsg && <p style={styles.deliveryMsg}>{deliveryMsg}</p>}
-          </div>
-
-          {/* Offer Banner */}
-          <div style={styles.offerBanner}>
-            <span>🎉 Bank Offer: 10% instant discount on HDFC Bank Cards</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Specifications Section */}
-      <div style={styles.specsSection}>
-        <h2 style={styles.specsTitle}>📋 Product Specifications</h2>
-        <table style={styles.specsTable}>
-          <tbody>
-            {Object.entries(mockSpecs).map(([key, value]) => (
-              <tr key={key} style={styles.specRow}>
-                <td style={styles.specKey}>{key}</td>
-                <td style={styles.specValue}>{value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Description Section */}
-      <div style={styles.descriptionSection}>
-        <h2 style={styles.specsTitle}>📖 Product Description</h2>
-        <p style={styles.description}>{product.description}</p>
-      </div>
-
-      {/* Similar Products Section */}
-      <div style={styles.similarSection}>
-        <h2 style={styles.specsTitle}>🛍️ You May Also Like</h2>
-        <div style={styles.similarGrid}>
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} style={styles.similarCard} onClick={() => navigate("/products")}>
-              <div style={styles.similarImage}>🛍️</div>
-              <h4 style={styles.similarName}>Similar Product {item}</h4>
-              <p style={styles.similarPrice}>₹999</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+const COLOR_MAP = {
+  Midnight: "#1c1c1e",
+  Pearl:    "#f5f0eb",
+  Cobalt:   "#2a52be",
+  Forest:   "#2d5a27",
+  Crimson:  "#c0392b",
 };
 
-const styles = {
+/* ─────────────────────────────────────────────
+   Component
+───────────────────────────────────────────── */
+export default function ProductDetails() {
+  const { id }    = useParams();
+  const navigate  = useNavigate();
+
+  const [product,       setProduct]       = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [quantity,      setQuantity]      = useState(1);
+  const [cartAdded,     setCartAdded]     = useState(false);
+  const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+  const [selectedSize,  setSelectedSize]  = useState(SIZES[2]);
+  const [pincode,       setPincode]       = useState("");
+  const [deliveryMsg,   setDeliveryMsg]   = useState(null);
+  const [activeTab,     setActiveTab]     = useState("specs");
+  const [activeImg,     setActiveImg]     = useState(0);
+
+  useEffect(() => {
+    API.get(`/products/${id}`)
+      .then(res => {
+        setProduct(res.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [id]);
+
+  const changeQty = useCallback((dir) => {
+    setQuantity(q =>
+      dir === "inc" ? Math.min(q + 1, product?.stock ?? 1)
+                    : Math.max(q - 1, 1)
+    );
+  }, [product?.stock]);
+
+  const addToCart = useCallback(() => {
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const idx  = cart.findIndex(i => i.id === product.id);
+    if (idx > -1) cart[idx].quantity += quantity;
+    else cart.push({ ...product, quantity, selectedColor, selectedSize });
+    localStorage.setItem("cart", JSON.stringify(cart));
+    setCartAdded(true);
+    setTimeout(() => setCartAdded(false), 2200);
+  }, [product, quantity, selectedColor, selectedSize]);
+
+  const buyNow = useCallback(() => {
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const idx  = cart.findIndex(i => i.id === product.id);
+    if (idx > -1) cart[idx].quantity += quantity;
+    else cart.push({ ...product, quantity, selectedColor, selectedSize });
+    localStorage.setItem("cart", JSON.stringify(cart));
+    navigate("/checkout");
+  }, [product, quantity, selectedColor, selectedSize, navigate]);
+
+  const checkDelivery = useCallback(() => {
+    setDeliveryMsg(
+      /^\d{6}$/.test(pincode)
+        ? { ok: true,  text: "Delivery available · 3–4 business days" }
+        : { ok: false, text: "Enter a valid 6-digit pincode" }
+    );
+  }, [pincode]);
+
+  /* ── Loading ── */
+  if (loading) return (
+    <div style={s.center}>
+      <div style={s.spinRing} />
+      <p style={s.loadText}>Loading…</p>
+    </div>
+  );
+
+  /* ── Not found ── */
+  if (!product) return (
+    <div style={s.center}>
+      <p style={{ color: "var(--clr-muted)", marginBottom: "1rem" }}>Product not found.</p>
+      <button style={s.ghostBtn} onClick={() => navigate("/products")}>← Back to products</button>
+    </div>
+  );
+
+  const inStock = product.stock > 0;
+  const mrp     = (product.price * 1.2).toLocaleString("en-IN");
+  const price   = product.price?.toLocaleString("en-IN");
+
+  return (
+    <>
+      <style>{CSS}</style>
+      <div style={s.page}>
+
+        {/* ── Breadcrumb ── */}
+        <nav style={s.breadcrumb}>
+          <button style={s.crumbBtn} onClick={() => navigate("/products")}>Products</button>
+          <span style={s.crumbSep}>/</span>
+          <span style={s.crumbActive}>{product.name}</span>
+        </nav>
+
+        {/* ── Main grid ── */}
+        <div style={s.grid}>
+
+          {/* LEFT – Image gallery */}
+          <div style={s.gallery}>
+            <div style={s.mainImgWrap}>
+              {product.imageUrl
+                ? <img src={product.imageUrl} alt={product.name} style={s.mainImg} />
+                : <span style={s.imgFallback}>🛍</span>}
+
+              {inStock &&
+                <span style={s.stockBadge}>In Stock</span>}
+            </div>
+
+            <div style={s.thumbRow}>
+              {[0, 1, 2, 3].map(i => (
+                <button
+                  key={i}
+                  className={`thumb-btn${activeImg === i ? " active" : ""}`}
+                  onClick={() => setActiveImg(i)}
+                >
+                  {product.imageUrl
+                    ? <img src={product.imageUrl} alt="" style={s.thumbImg} />
+                    : "🛍"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* RIGHT – Details */}
+          <div style={s.details}>
+
+            {/* Meta */}
+            <p style={s.brand}>ShopEase Exclusive</p>
+            <h1 style={s.title}>{product.name}</h1>
+
+            <div style={s.ratingRow}>
+              <div style={s.stars}>
+                {"★★★★☆"}
+              </div>
+              <span style={s.ratingNum}>4.5</span>
+              <span style={s.ratingCount}>· 1,234 reviews</span>
+            </div>
+
+            {/* Price */}
+            <div style={s.priceRow}>
+              <span style={s.price}>₹{price}</span>
+              <span style={s.mrp}>₹{mrp}</span>
+              <span style={s.pill}>20% off</span>
+            </div>
+            <p style={s.taxNote}>Inclusive of all taxes</p>
+
+            <hr style={s.divider} />
+
+            {/* Color */}
+            <div style={s.optGroup}>
+              <span style={s.optLabel}>Color</span>
+              <span style={s.optVal}>{selectedColor}</span>
+              <div style={s.swatchRow}>
+                {COLORS.map(c => (
+                  <button
+                    key={c}
+                    title={c}
+                    className={`swatch-btn${selectedColor === c ? " selected" : ""}`}
+                    style={{ "--sw-bg": COLOR_MAP[c] }}
+                    onClick={() => setSelectedColor(c)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Size */}
+            <div style={s.optGroup}>
+              <span style={s.optLabel}>Size</span>
+              <span style={s.optVal}>{selectedSize}</span>
+              <div style={s.sizeRow}>
+                {SIZES.map(sz => (
+                  <button
+                    key={sz}
+                    className={`size-btn${selectedSize === sz ? " selected" : ""}`}
+                    onClick={() => setSelectedSize(sz)}
+                  >
+                    {sz}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quantity */}
+            <div style={s.optGroup}>
+              <span style={s.optLabel}>Quantity</span>
+              <div style={s.qtyCtrl}>
+                <button style={s.qtyBtn} onClick={() => changeQty("dec")} disabled={quantity <= 1}>−</button>
+                <span style={s.qtyNum}>{quantity}</span>
+                <button style={s.qtyBtn} onClick={() => changeQty("inc")} disabled={!inStock || quantity >= product.stock}>+</button>
+              </div>
+            </div>
+
+            {/* CTA buttons */}
+            <div style={s.ctaRow}>
+              <button
+                className={`cta-cart${cartAdded ? " added" : ""}`}
+                style={s.ctaCart}
+                onClick={addToCart}
+                disabled={!inStock}
+              >
+                {cartAdded ? "✓ Added" : "Add to Cart"}
+              </button>
+              <button
+                style={inStock ? s.ctaBuy : s.ctaBuyDisabled}
+                onClick={buyNow}
+                disabled={!inStock}
+              >
+                Buy Now
+              </button>
+            </div>
+
+            {/* Delivery check */}
+            <div style={s.deliveryBox}>
+              <p style={s.deliveryHeading}>Check Delivery</p>
+              <div style={s.pincodeRow}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Enter pincode"
+                  value={pincode}
+                  onChange={e => { setPincode(e.target.value); setDeliveryMsg(null); }}
+                  style={s.pincodeInput}
+                />
+                <button style={s.checkBtn} onClick={checkDelivery}>Check</button>
+              </div>
+              {deliveryMsg && (
+                <p style={{ ...s.deliveryResult, color: deliveryMsg.ok ? "var(--clr-success)" : "var(--clr-error)" }}>
+                  {deliveryMsg.text}
+                </p>
+              )}
+            </div>
+
+            {/* Offer strip */}
+            <div style={s.offerStrip}>
+              <span style={s.offerIcon}>🏷</span>
+              10% instant discount on HDFC Bank Cards
+            </div>
+          </div>
+        </div>
+
+        {/* ── Tabs: Specs / Description ── */}
+        <div style={s.tabSection}>
+          <div style={s.tabBar}>
+            {["specs", "description"].map(t => (
+              <button
+                key={t}
+                className={`tab-btn${activeTab === t ? " active" : ""}`}
+                onClick={() => setActiveTab(t)}
+              >
+                {t === "specs" ? "Specifications" : "Description"}
+              </button>
+            ))}
+          </div>
+
+          <div style={s.tabContent}>
+            {activeTab === "specs" && (
+              <table style={s.specTable}>
+                <tbody>
+                  {SPECS.map(([k, v]) => (
+                    <tr key={k} style={s.specRow}>
+                      <td style={s.specKey}>{k}</td>
+                      <td style={s.specVal}>{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {activeTab === "description" && (
+              <p style={s.descText}>{product.description || "No description available."}</p>
+            )}
+          </div>
+        </div>
+
+        {/* ── You may also like ── */}
+        <div style={s.relatedSection}>
+          <h2 style={s.sectionTitle}>You May Also Like</h2>
+          <div style={s.relatedGrid}>
+            {[1, 2, 3, 4].map(n => (
+              <button key={n} style={s.relatedCard} onClick={() => navigate("/products")}>
+                <div style={s.relatedImg}>🛍</div>
+                <p style={s.relatedName}>Similar Product {n}</p>
+                <p style={s.relatedPrice}>₹999</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   CSS (injected via <style> tag)
+───────────────────────────────────────────── */
+const CSS = `
+  :root {
+    --clr-ink:       #0a0a0a;
+    --clr-ink2:      #3a3a3a;
+    --clr-muted:     #888;
+    --clr-border:    #e8e4de;
+    --clr-surface:   #fafaf8;
+    --clr-white:     #ffffff;
+    --clr-accent:    #1a1a2e;
+    --clr-accent2:   #e8572a;
+    --clr-success:   #1a7a4a;
+    --clr-error:     #c0392b;
+    --clr-gold:      #c9a84c;
+    --ff-display:    'Playfair Display', Georgia, serif;
+    --ff-body:       'DM Sans', -apple-system, sans-serif;
+    --radius-sm:     6px;
+    --radius-md:     12px;
+    --radius-lg:     18px;
+    --transition:    0.18s ease;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@300;400;500&display=swap');
+
+  /* Spinner animation */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeSlide { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  /* Thumbnail buttons */
+  .thumb-btn {
+    width: 64px; height: 64px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--clr-border);
+    background: var(--clr-surface);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; cursor: pointer;
+    transition: border-color var(--transition), transform var(--transition);
+    padding: 0;
+    font-size: 20px;
+  }
+  .thumb-btn:hover    { border-color: #aaa; transform: translateY(-1px); }
+  .thumb-btn.active   { border-color: var(--clr-accent); border-width: 2px; }
+
+  /* Swatch buttons */
+  .swatch-btn {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--sw-bg);
+    border: 2px solid transparent;
+    outline: 2px solid transparent;
+    cursor: pointer;
+    transition: outline-color var(--transition), transform var(--transition);
+  }
+  .swatch-btn:hover   { transform: scale(1.12); }
+  .swatch-btn.selected { outline-color: var(--clr-accent); outline-offset: 3px; }
+
+  /* Size buttons */
+  .size-btn {
+    min-width: 44px; height: 36px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--clr-border);
+    background: var(--clr-white);
+    font-family: var(--ff-body);
+    font-size: 13px; font-weight: 500;
+    color: var(--clr-ink2);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .size-btn:hover   { border-color: var(--clr-accent); color: var(--clr-accent); }
+  .size-btn.selected {
+    background: var(--clr-accent); color: #fff;
+    border-color: var(--clr-accent);
+  }
+
+  /* CTA Cart button */
+  .cta-cart {
+    transition: background var(--transition), transform var(--transition);
+  }
+  .cta-cart:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.92; }
+  .cta-cart.added {
+    background: var(--clr-success) !important;
+    animation: fadeSlide 0.25s ease;
+  }
+
+  /* Tab buttons */
+  .tab-btn {
+    padding: 10px 24px;
+    border: none; background: none;
+    font-family: var(--ff-body);
+    font-size: 14px; font-weight: 500;
+    color: var(--clr-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color var(--transition), border-color var(--transition);
+    text-transform: capitalize;
+    letter-spacing: 0.02em;
+  }
+  .tab-btn:hover { color: var(--clr-ink); }
+  .tab-btn.active {
+    color: var(--clr-accent);
+    border-bottom-color: var(--clr-accent);
+  }
+`;
+
+/* ─────────────────────────────────────────────
+   Inline styles object
+───────────────────────────────────────────── */
+const s = {
+  /* Page */
   page: {
-    padding: "2rem",
-    maxWidth: "1200px",
+    maxWidth: "1160px",
     margin: "0 auto",
-    fontFamily: "'Segoe UI', sans-serif",
-    background: "#f8fafc",
+    padding: "2rem 1.5rem 4rem",
+    fontFamily: "var(--ff-body)",
+    background: "var(--clr-white)",
     minHeight: "100vh",
+    color: "var(--clr-ink)",
   },
-  backBtn: {
-    background: "none",
-    border: "none",
-    fontSize: "14px",
-    color: "#667eea",
-    cursor: "pointer",
-    marginBottom: "1.5rem",
-    padding: "8px 16px",
-    borderRadius: "8px",
+
+  /* Loading / center */
+  center: {
+    display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center",
+    minHeight: "60vh", gap: "1rem",
   },
-  container: {
+  spinRing: {
+    width: "36px", height: "36px",
+    border: "2.5px solid var(--clr-border)",
+    borderTop: "2.5px solid var(--clr-accent)",
+    borderRadius: "50%",
+    animation: "spin 0.8s linear infinite",
+  },
+  loadText: { color: "var(--clr-muted)", fontSize: "14px" },
+
+  ghostBtn: {
+    background: "none", border: "1px solid var(--clr-border)",
+    borderRadius: "var(--radius-sm)", padding: "8px 18px",
+    cursor: "pointer", fontSize: "13px", color: "var(--clr-ink2)",
+    fontFamily: "var(--ff-body)",
+  },
+
+  /* Breadcrumb */
+  breadcrumb: {
+    display: "flex", alignItems: "center", gap: "8px",
+    marginBottom: "2rem",
+  },
+  crumbBtn: {
+    background: "none", border: "none",
+    color: "var(--clr-muted)", fontSize: "13px",
+    cursor: "pointer", fontFamily: "var(--ff-body)",
+    padding: 0,
+  },
+  crumbSep:    { color: "var(--clr-border)", fontSize: "13px" },
+  crumbActive: { fontSize: "13px", color: "var(--clr-ink2)", fontWeight: 500 },
+
+  /* Main grid */
+  grid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "2rem",
-    background: "white",
-    borderRadius: "24px",
-    padding: "2rem",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-    marginBottom: "2rem",
+    gap: "3.5rem",
+    marginBottom: "3.5rem",
+    "@media (max-width: 768px)": { gridTemplateColumns: "1fr" },
   },
-  imageSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  mainImage: {
-    width: "100%",
-    height: "350px",
-    background: "#f8fafc",
-    borderRadius: "16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+
+  /* Gallery */
+  gallery: { display: "flex", flexDirection: "column", gap: "12px" },
+  mainImgWrap: {
+    position: "relative",
+    width: "100%", aspectRatio: "1 / 1",
+    background: "var(--clr-surface)",
+    borderRadius: "var(--radius-lg)",
     overflow: "hidden",
+    display: "flex", alignItems: "center", justifyContent: "center",
   },
-  image: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
+  mainImg:    { width: "100%", height: "100%", objectFit: "cover" },
+  imgFallback: { fontSize: "80px" },
+  stockBadge: {
+    position: "absolute", top: "14px", left: "14px",
+    background: "var(--clr-success)", color: "#fff",
+    fontSize: "11px", fontWeight: 500, letterSpacing: "0.06em",
+    padding: "4px 10px", borderRadius: "20px",
+    textTransform: "uppercase",
   },
-  imagePlaceholder: {
-    fontSize: "80px",
-  },
-  thumbnailRow: {
-    display: "flex",
-    gap: "0.5rem",
-    justifyContent: "center",
-  },
-  thumbnail: {
-    width: "60px",
-    height: "60px",
-    borderRadius: "8px",
-    background: "#f8fafc",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    overflow: "hidden",
-  },
-  thumbImg: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-  detailsSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
+  thumbRow: { display: "flex", gap: "10px" },
+  thumbImg: { width: "100%", height: "100%", objectFit: "cover" },
+
+  /* Details */
+  details: { display: "flex", flexDirection: "column", gap: "16px" },
   brand: {
-    color: "#667eea",
-    fontSize: "13px",
-    fontWeight: "600",
-    letterSpacing: "0.5px",
-  },
-  name: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#1e293b",
+    fontFamily: "var(--ff-body)", fontSize: "11px",
+    fontWeight: 500, letterSpacing: "0.14em",
+    textTransform: "uppercase", color: "var(--clr-muted)",
     margin: 0,
   },
-  ratingRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
+  title: {
+    fontFamily: "var(--ff-display)", fontSize: "clamp(22px, 2.8vw, 32px)",
+    fontWeight: 600, color: "var(--clr-ink)", lineHeight: 1.2, margin: 0,
   },
-  rating: {
-    background: "#10b981",
-    color: "white",
-    padding: "2px 8px",
-    borderRadius: "12px",
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-  reviewCount: {
-    fontSize: "13px",
-    color: "#64748b",
-  },
-  priceSection: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    flexWrap: "wrap",
-    marginTop: "0.5rem",
-  },
-  price: {
-    fontSize: "28px",
-    fontWeight: "800",
-    color: "#0f172a",
-  },
+
+  /* Rating */
+  ratingRow: { display: "flex", alignItems: "center", gap: "8px" },
+  stars:     { color: "var(--clr-gold)", fontSize: "15px", letterSpacing: "1px" },
+  ratingNum: { fontSize: "14px", fontWeight: 500 },
+  ratingCount: { fontSize: "13px", color: "var(--clr-muted)" },
+
+  /* Price */
+  priceRow: { display: "flex", alignItems: "baseline", gap: "12px", flexWrap: "wrap" },
+  price:    { fontFamily: "var(--ff-display)", fontSize: "30px", fontWeight: 600, color: "var(--clr-ink)" },
   mrp: {
-    fontSize: "14px",
-    color: "#94a3b8",
+    fontSize: "15px", color: "var(--clr-muted)",
     textDecoration: "line-through",
   },
-  discount: {
-    fontSize: "14px",
-    color: "#10b981",
-    fontWeight: "600",
+  pill: {
+    fontSize: "12px", fontWeight: 500,
+    background: "#fff3cd", color: "#856404",
+    padding: "3px 10px", borderRadius: "20px",
   },
-  inStock: {
-    background: "#dcfce7",
-    color: "#166534",
-    padding: "4px 12px",
-    borderRadius: "20px",
-    fontSize: "12px",
-    fontWeight: "600",
+  taxNote: { fontSize: "12px", color: "var(--clr-muted)", margin: 0 },
+
+  divider: { border: "none", borderTop: "1px solid var(--clr-border)", margin: 0 },
+
+  /* Option groups */
+  optGroup: { display: "flex", flexDirection: "column", gap: "10px" },
+  optLabel: {
+    fontSize: "12px", fontWeight: 500, color: "var(--clr-muted)",
+    letterSpacing: "0.08em", textTransform: "uppercase",
   },
-  outStock: {
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "4px 12px",
-    borderRadius: "20px",
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-  optionSection: {
-    marginTop: "0.5rem",
-  },
-  optionLabel: {
-    fontWeight: "600",
-    color: "#334155",
-    fontSize: "14px",
-    display: "block",
-    marginBottom: "8px",
-  },
-  colorOptions: {
-    display: "flex",
-    gap: "0.75rem",
-    marginBottom: "6px",
-  },
-  colorBtn: {
-    width: "32px",
-    height: "32px",
-    borderRadius: "50%",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  sizeOptions: {
-    display: "flex",
-    gap: "0.75rem",
-    marginBottom: "6px",
-  },
-  sizeBtn: {
-    width: "40px",
-    height: "36px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: "600",
-    border: "1px solid #e2e8f0",
-    transition: "all 0.2s",
-  },
-  selectedValue: {
-    fontSize: "12px",
-    color: "#64748b",
-  },
-  quantitySection: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    flexWrap: "wrap",
-    marginTop: "0.5rem",
-  },
-  quantityLabel: {
-    fontWeight: "600",
-    color: "#334155",
-  },
-  quantitySelector: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    border: "1px solid #e2e8f0",
-    borderRadius: "12px",
-    overflow: "hidden",
+  optVal:  { fontSize: "14px", fontWeight: 500, color: "var(--clr-ink2)", marginTop: "-6px" },
+  swatchRow: { display: "flex", gap: "10px" },
+  sizeRow:   { display: "flex", gap: "8px", flexWrap: "wrap" },
+
+  /* Qty */
+  qtyCtrl: {
+    display: "inline-flex", alignItems: "center",
+    border: "1.5px solid var(--clr-border)", borderRadius: "var(--radius-sm)",
+    overflow: "hidden", width: "fit-content",
   },
   qtyBtn: {
-    width: "32px",
-    height: "32px",
-    background: "#f1f5f9",
-    border: "none",
-    fontSize: "18px",
-    cursor: "pointer",
+    width: "36px", height: "36px",
+    background: "var(--clr-surface)", border: "none",
+    fontSize: "18px", cursor: "pointer",
+    color: "var(--clr-ink2)", fontFamily: "var(--ff-body)",
+    transition: "background var(--transition)",
+    display: "flex", alignItems: "center", justifyContent: "center",
   },
-  quantity: {
-    minWidth: "40px",
-    textAlign: "center",
-    fontWeight: "600",
+  qtyNum: {
+    minWidth: "44px", textAlign: "center",
+    fontSize: "15px", fontWeight: 500,
+    borderLeft: "1px solid var(--clr-border)",
+    borderRight: "1px solid var(--clr-border)",
+    height: "36px", lineHeight: "36px",
+    userSelect: "none",
   },
-  maxQty: {
-    fontSize: "11px",
-    color: "#64748b",
+
+  /* CTAs */
+  ctaRow: { display: "flex", gap: "12px", marginTop: "4px" },
+  ctaCart: {
+    flex: 1, padding: "13px",
+    background: "var(--clr-accent)", color: "#fff",
+    border: "none", borderRadius: "var(--radius-md)",
+    fontSize: "14px", fontWeight: 500,
+    cursor: "pointer", fontFamily: "var(--ff-body)",
+    letterSpacing: "0.02em",
   },
-  buttonGroup: {
-    display: "flex",
-    gap: "1rem",
-    marginTop: "0.5rem",
+  ctaBuy: {
+    flex: 1, padding: "13px",
+    background: "var(--clr-accent2)", color: "#fff",
+    border: "none", borderRadius: "var(--radius-md)",
+    fontSize: "14px", fontWeight: 500,
+    cursor: "pointer", fontFamily: "var(--ff-body)",
+    letterSpacing: "0.02em",
+    transition: "opacity 0.18s ease, transform 0.18s ease",
   },
-  addToCartBtn: {
-    flex: 1,
-    padding: "12px",
-    background: "#8b5cf6",
-    color: "white",
-    border: "none",
-    borderRadius: "40px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
+  ctaBuyDisabled: {
+    flex: 1, padding: "13px",
+    background: "#f0ede8", color: "#aaa",
+    border: "none", borderRadius: "var(--radius-md)",
+    fontSize: "14px", cursor: "not-allowed", fontFamily: "var(--ff-body)",
   },
-  addedBtn: {
-    flex: 1,
-    padding: "12px",
-    background: "#10b981",
-    color: "white",
-    border: "none",
-    borderRadius: "40px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
+
+  /* Delivery */
+  deliveryBox: {
+    background: "var(--clr-surface)",
+    borderRadius: "var(--radius-md)",
+    padding: "14px 16px",
+    border: "1px solid var(--clr-border)",
   },
-  buyNowBtn: {
-    flex: 1,
-    padding: "12px",
-    background: "#f97316",
-    color: "white",
-    border: "none",
-    borderRadius: "40px",
-    fontSize: "14px",
-    fontWeight: "600",
-    cursor: "pointer",
+  deliveryHeading: {
+    fontSize: "12px", fontWeight: 500,
+    letterSpacing: "0.08em", textTransform: "uppercase",
+    color: "var(--clr-muted)", margin: "0 0 10px",
   },
-  disabledBuyBtn: {
-    flex: 1,
-    padding: "12px",
-    background: "#fed7aa",
-    color: "#9a3412",
-    border: "none",
-    borderRadius: "40px",
-    cursor: "not-allowed",
-  },
-  deliverySection: {
-    marginTop: "0.5rem",
-  },
-  pincodeBox: {
-    display: "flex",
-    gap: "0.5rem",
-  },
+  pincodeRow:  { display: "flex", gap: "8px" },
   pincodeInput: {
-    flex: 1,
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #e2e8f0",
-    outline: "none",
+    flex: 1, height: "38px",
+    padding: "0 12px",
+    border: "1.5px solid var(--clr-border)",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "14px", fontFamily: "var(--ff-body)",
+    outline: "none", color: "var(--clr-ink)",
+    background: "var(--clr-white)",
   },
   checkBtn: {
-    padding: "10px 20px",
-    background: "#667eea",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
+    height: "38px", padding: "0 18px",
+    background: "var(--clr-accent)", color: "#fff",
+    border: "none", borderRadius: "var(--radius-sm)",
+    fontSize: "13px", fontWeight: 500,
+    cursor: "pointer", fontFamily: "var(--ff-body)",
+    whiteSpace: "nowrap",
   },
-  deliveryMsg: {
-    fontSize: "12px",
-    marginTop: "6px",
-    color: "#10b981",
+  deliveryResult: {
+    fontSize: "13px", margin: "8px 0 0", fontWeight: 500,
   },
-  offerBanner: {
-    background: "#fef3c7",
-    padding: "10px",
-    borderRadius: "8px",
-    textAlign: "center",
-    fontSize: "12px",
-    color: "#b45309",
-    marginTop: "0.5rem",
+
+  /* Offer strip */
+  offerStrip: {
+    display: "flex", alignItems: "center", gap: "8px",
+    background: "#fffbf0", border: "1px solid #ffe8a0",
+    borderRadius: "var(--radius-sm)",
+    padding: "10px 14px",
+    fontSize: "13px", color: "#7a5e00",
   },
-  specsSection: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "1.5rem",
-    marginBottom: "1.5rem",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+  offerIcon: { fontSize: "16px" },
+
+  /* Tabs */
+  tabSection: {
+    marginBottom: "3rem",
+    border: "1px solid var(--clr-border)",
+    borderRadius: "var(--radius-lg)",
+    overflow: "hidden",
   },
-  specsTitle: {
-    fontSize: "20px",
-    fontWeight: "700",
-    marginBottom: "1rem",
-    color: "#1e293b",
+  tabBar: {
+    display: "flex",
+    borderBottom: "1px solid var(--clr-border)",
+    background: "var(--clr-surface)",
+    padding: "0 8px",
   },
-  specsTable: {
-    width: "100%",
-    borderCollapse: "collapse",
+  tabContent: { padding: "24px 28px" },
+
+  /* Spec table */
+  specTable: {
+    width: "100%", borderCollapse: "collapse",
+    fontFamily: "var(--ff-body)",
   },
-  specRow: {
-    borderBottom: "1px solid #f1f5f9",
-  },
+  specRow: { borderBottom: "1px solid var(--clr-border)" },
   specKey: {
-    padding: "10px",
-    fontWeight: "600",
-    width: "30%",
-    color: "#475569",
+    padding: "11px 0", width: "32%",
+    fontSize: "13px", fontWeight: 500,
+    color: "var(--clr-muted)",
+    verticalAlign: "top",
   },
-  specValue: {
-    padding: "10px",
-    color: "#334155",
+  specVal: {
+    padding: "11px 0", fontSize: "14px",
+    color: "var(--clr-ink2)",
   },
-  descriptionSection: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "1.5rem",
-    marginBottom: "1.5rem",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+
+  /* Description */
+  descText: {
+    fontSize: "15px", lineHeight: 1.75,
+    color: "var(--clr-ink2)", margin: 0,
   },
-  description: {
-    color: "#475569",
-    lineHeight: "1.6",
+
+  /* Related */
+  relatedSection: { marginBottom: "2rem" },
+  sectionTitle: {
+    fontFamily: "var(--ff-display)",
+    fontSize: "22px", fontWeight: 600,
+    color: "var(--clr-ink)", marginBottom: "1.25rem",
   },
-  similarSection: {
-    background: "white",
-    borderRadius: "20px",
-    padding: "1.5rem",
-    marginBottom: "2rem",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-  },
-  similarGrid: {
+  relatedGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-    gap: "1rem",
-    marginTop: "1rem",
+    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+    gap: "14px",
   },
-  similarCard: {
-    background: "#f8fafc",
-    borderRadius: "12px",
+  relatedCard: {
+    background: "var(--clr-surface)",
+    border: "1px solid var(--clr-border)",
+    borderRadius: "var(--radius-md)",
     padding: "1rem",
     textAlign: "center",
     cursor: "pointer",
-    transition: "transform 0.2s",
+    transition: "box-shadow 0.18s ease, transform 0.18s ease",
+    fontFamily: "var(--ff-body)",
   },
-  similarImage: {
-    fontSize: "48px",
-    marginBottom: "0.5rem",
-  },
-  similarName: {
-    fontSize: "13px",
-    fontWeight: "600",
-    marginBottom: "0.25rem",
-  },
-  similarPrice: {
-    fontSize: "12px",
-    color: "#667eea",
-    fontWeight: "600",
-  },
-  loading: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "3px solid #e2e8f0",
-    borderTop: "3px solid #8b5cf6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  notFound: {
-    textAlign: "center",
-    padding: "4rem",
-  },
+  relatedImg:   { fontSize: "40px", marginBottom: "10px" },
+  relatedName:  { fontSize: "13px", fontWeight: 500, color: "var(--clr-ink2)", margin: "0 0 4px" },
+  relatedPrice: { fontSize: "13px", color: "var(--clr-accent2)", fontWeight: 600, margin: 0 },
 };
-
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  button:hover {
-    transform: translateY(-1px);
-    opacity: 0.95;
-  }
-`;
-document.head.appendChild(styleSheet);
-
-export default ProductDetails;

@@ -44,30 +44,37 @@ import toast from "react-hot-toast";
       from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    
     @keyframes fadeInScale {
       from { opacity: 0; transform: scale(0.95); }
       to { opacity: 1; transform: scale(1); }
     }
-    
     @keyframes shimmer {
       0% { background-position: -1000px 0; }
       100% { background-position: 1000px 0; }
     }
-    
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
-    
     @keyframes slideInLeft {
       from { opacity: 0; transform: translateX(-30px); }
       to { opacity: 1; transform: translateX(0); }
     }
-    
     @keyframes slideInRight {
       from { opacity: 0; transform: translateX(30px); }
       to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    @keyframes countPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    @keyframes badgeGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
     }
     
     .animate-fade-up { animation: fadeInUp 0.6s ease-out forwards; }
@@ -81,6 +88,9 @@ import toast from "react-hot-toast";
     .card-hover:hover {
       transform: translateY(-8px);
       box-shadow: var(--shadow-xl);
+    }
+    .card-hover:hover .prod-overlay {
+      opacity: 1 !important;
     }
     
     .image-zoom {
@@ -110,10 +120,46 @@ import toast from "react-hot-toast";
       width: 300px;
       height: 300px;
     }
+
+    /* Promo banner ticker */
+    .ticker-wrap {
+      overflow: hidden;
+      width: 100%;
+    }
+    .ticker-inner {
+      display: flex;
+      width: max-content;
+      animation: marquee 28s linear infinite;
+    }
+    .ticker-inner:hover {
+      animation-play-state: paused;
+    }
+
+    /* Recently viewed scrollbar hide */
+    .rv-scroll {
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .rv-scroll::-webkit-scrollbar { display: none; }
+
+    /* Trending tag hover */
+    .trend-tag {
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .trend-tag:hover {
+      transform: translateY(-2px);
+    }
+
+    .cat-chip:hover {
+      transform: translateY(-2px);
+    }
+    .prod-overlay button:hover {
+      transform: scale(1.05);
+    }
     
     @media (max-width: 768px) {
       .prod-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
-      .prod-stats { grid-template-columns: repeat(2, 1fr) !important; }
       .prod-hero-title { font-size: 32px !important; }
     }
     @media (max-width: 480px) {
@@ -145,6 +191,155 @@ const StockBadge = ({ stock }) => {
   if (stock === 0) return <span style={S.badgeOut}>❌ Out of stock</span>;
   if (stock <= 5) return <span style={S.badgeLow}>⚠️ Only {stock} left</span>;
   return <span style={S.badgeIn}>✅ In stock</span>;
+};
+
+/* ─────────────────────────────────────────────
+   PROMO BANNER (replaces stats)
+───────────────────────────────────────────────*/
+const PromoBanner = () => {
+  const [timeLeft, setTimeLeft] = useState({ h: 5, m: 42, s: 30 });
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTimeLeft(prev => {
+        let { h, m, s } = prev;
+        s--;
+        if (s < 0) { s = 59; m--; }
+        if (m < 0) { m = 59; h--; }
+        if (h < 0) return { h: 5, m: 59, s: 59 };
+        return { h, m, s };
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const pad = n => String(n).padStart(2, "0");
+
+  const tickers = [
+    "🎉 FREE SHIPPING on orders above ₹999",
+    "🔥 Flash Sale — Up to 40% OFF selected items",
+    "💳 Extra 10% OFF with HDFC cards",
+    "📦 Same-day delivery available in select cities",
+    "🌟 New arrivals added every Monday",
+    "🎁 Gift wrapping available at checkout",
+  ];
+  const tickerText = [...tickers, ...tickers].join("   ·   ");
+
+  return (
+    <div style={S.promoBanner}>
+      {/* Left: countdown */}
+      <div style={S.promoLeft}>
+        <span style={S.promoFireIcon}>🔥</span>
+        <div>
+          <div style={S.promoLabel}>Flash Sale ends in</div>
+          <div style={S.promoCountdown}>
+            <span style={S.promoDigit}>{pad(timeLeft.h)}</span>
+            <span style={S.promoColon}>:</span>
+            <span style={S.promoDigit}>{pad(timeLeft.m)}</span>
+            <span style={S.promoColon}>:</span>
+            <span style={S.promoDigit} className="countPulse">{pad(timeLeft.s)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Center: ticker */}
+      <div style={S.promoCenter} className="ticker-wrap">
+        <div className="ticker-inner" style={S.tickerInner}>
+          <span style={S.tickerText}>{tickerText}&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;</span>
+          <span style={S.tickerText}>{tickerText}&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;</span>
+        </div>
+      </div>
+
+      {/* Right: CTA */}
+      <button style={S.promoBtn} className="btn-ripple">
+        Shop Now →
+      </button>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   TRENDING TAGS
+───────────────────────────────────────────────*/
+const TrendingTags = ({ onTagClick, activeTag }) => {
+  const tags = [
+    { label: "🔥 Bestseller", key: "Bestseller" },
+    { label: "✨ New Arrival", key: "New Arrival" },
+    { label: "💎 Premium", key: "Premium" },
+    { label: "⚡ Flash Deal", key: "Flash Deal" },
+    { label: "🎁 Gift Ideas", key: "Gift Ideas" },
+    { label: "📱 Electronics", key: "Electronics" },
+    { label: "👗 Fashion", key: "Fashion" },
+    { label: "🏠 Home & Living", key: "Home & Living" },
+  ];
+
+  return (
+    <div style={S.trendSection}>
+      <div style={S.trendHeader}>
+        <span style={S.trendTitle}>🚀 Trending Now</span>
+        <span style={S.trendSub}>Tap to filter</span>
+      </div>
+      <div style={S.trendTags}>
+        {tags.map(tag => (
+          <button
+            key={tag.key}
+            className="trend-tag"
+            onClick={() => onTagClick(tag.key === activeTag ? null : tag.key)}
+            style={{
+              ...S.trendTag,
+              background: activeTag === tag.key ? "#1e293b" : "#ffffff",
+              color: activeTag === tag.key ? "#ffffff" : "#475569",
+              borderColor: activeTag === tag.key ? "#1e293b" : "#e2e8f0",
+              boxShadow: activeTag === tag.key ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
+            }}
+          >
+            {tag.label}
+            {tag.key === "Bestseller" && (
+              <span style={S.hotDot} />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   RECENTLY VIEWED STRIP
+───────────────────────────────────────────────*/
+const RecentlyViewed = ({ items, onView }) => {
+  if (!items || items.length === 0) return null;
+  return (
+    <div style={S.rvSection}>
+      <div style={S.rvHeader}>
+        <span style={S.rvTitle}>👁️ Recently Viewed</span>
+        <span style={S.rvCount}>{items.length} item{items.length !== 1 ? "s" : ""}</span>
+      </div>
+      <div className="rv-scroll" style={S.rvScroll}>
+        <div style={S.rvRow}>
+          {items.map(p => (
+            <div
+              key={p.id}
+              style={S.rvCard}
+              onClick={() => onView(p.id)}
+              title={p.name}
+            >
+              <div style={S.rvImgBox}>
+                {p.imageUrl
+                  ? <img src={p.imageUrl} alt={p.name} style={S.rvImg} />
+                  : <div style={S.rvImgPlaceholder}>📦</div>
+                }
+              </div>
+              <div style={S.rvInfo}>
+                <div style={S.rvName}>{p.name}</div>
+                <div style={S.rvPrice}>₹{p.price.toLocaleString("en-IN")}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 /* ─────────────────────────────────────────────
@@ -309,6 +504,8 @@ function Products() {
   const [viewMode, setViewMode] = useState("grid");
   const [priceRange, setPriceRange] = useState([0, 200000]);
   const [showFilters, setShowFilters] = useState(false);
+  const [activeTag, setActiveTag] = useState(null);
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
   const searchRef = useRef(null);
 
   const token = localStorage.getItem("customerToken") || localStorage.getItem("adminToken");
@@ -329,7 +526,13 @@ function Products() {
                           p.description.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = category === "All" || p.category === category;
     const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
-    return matchesSearch && matchesCategory && matchesPrice;
+    // Trending tag filter — maps tag labels to product properties
+    let matchesTag = true;
+    if (activeTag === "Premium") matchesTag = p.price > 50000;
+    else if (activeTag === "Flash Deal") matchesTag = p.stock <= 5 && p.stock > 0;
+    else if (activeTag === "Bestseller") matchesTag = p.stock > 10;
+    else if (activeTag) matchesTag = p.category?.toLowerCase().includes(activeTag.toLowerCase());
+    return matchesSearch && matchesCategory && matchesPrice && matchesTag;
   });
 
   if (sort === "price-asc") filtered.sort((a, b) => a.price - b.price);
@@ -337,13 +540,6 @@ function Products() {
   else if (sort === "name") filtered.sort((a, b) => a.name.localeCompare(b.name));
   else if (sort === "stock") filtered.sort((a, b) => b.stock - a.stock);
   else if (sort === "rating") filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-
-  const stats = [
-    { label: "Total Products", value: products.length, icon: "📦", gradient: "linear-gradient(135deg, #3b82f6, #2563eb)" },
-    { label: "In Stock", value: products.filter(p => p.stock > 0).length, icon: "✅", gradient: "linear-gradient(135deg, #10b981, #059669)" },
-    { label: "Categories", value: new Set(products.map(p => p.category)).size, icon: "🏷️", gradient: "linear-gradient(135deg, #f59e0b, #d97706)" },
-    { label: "Avg. Price", value: products.length ? `₹${Math.round(products.reduce((s,p) => s+p.price,0) / products.length).toLocaleString("en-IN")}` : "₹0", icon: "💰", gradient: "linear-gradient(135deg, #8b5cf6, #7c3aed)" },
-  ];
 
   const handleAdd = useCallback(async (product) => {
     if (!token) { toast.error("Please login first"); navigate("/portal"); return; }
@@ -376,7 +572,16 @@ function Products() {
     }
   }, [token, navigate]);
 
-  const handleView = useCallback((id) => navigate(`/product/${id}`), [navigate]);
+  const handleView = useCallback((id) => {
+    const product = products.find(p => p.id === id);
+    if (product) {
+      setRecentlyViewed(prev => {
+        const filtered = prev.filter(p => p.id !== id);
+        return [product, ...filtered].slice(0, 8);
+      });
+    }
+    navigate(`/product/${id}`);
+  }, [navigate, products]);
 
   return (
     <div style={S.page}>
@@ -425,18 +630,15 @@ function Products() {
       </div>
 
       <div style={S.main}>
-        {/* Stats Cards */}
-        <div className="prod-stats" style={S.statsGrid}>
-          {stats.map((stat, idx) => (
-            <div key={stat.label} className="animate-fade-scale" style={{ ...S.statCard, background: stat.gradient, animationDelay: `${idx * 0.1}s` }}>
-              <div style={S.statIcon}>{stat.icon}</div>
-              <div style={S.statContent}>
-                <div style={S.statLabel}>{stat.label}</div>
-                <div style={S.statValue}>{stat.value}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+
+        {/* ── NEW: Promo Banner with countdown & ticker ── */}
+        <PromoBanner />
+
+        {/* ── NEW: Trending Tags ── */}
+        <TrendingTags onTagClick={setActiveTag} activeTag={activeTag} />
+
+        {/* ── NEW: Recently Viewed ── */}
+        <RecentlyViewed items={recentlyViewed} onView={handleView} />
 
         {/* Toolbar */}
         <div className="prod-toolbar" style={S.toolbar}>
@@ -521,9 +723,10 @@ function Products() {
         <div style={S.resultRow}>
           <span style={S.resultCount}>
             {loading ? "Loading products..." : `Showing ${filtered.length} of ${products.length} products`}
+            {activeTag && <span style={S.activeTagBadge}>· {activeTag} ×</span>}
           </span>
-          {(search || category !== "All" || priceRange[1] < maxPrice) && !loading && (
-            <button style={S.clearAllBtn} onClick={() => { setSearch(""); setCategory("All"); setPriceRange([0, maxPrice]); }}>
+          {(search || category !== "All" || priceRange[1] < maxPrice || activeTag) && !loading && (
+            <button style={S.clearAllBtn} onClick={() => { setSearch(""); setCategory("All"); setPriceRange([0, maxPrice]); setActiveTag(null); }}>
               Clear All Filters ×
             </button>
           )}
@@ -539,7 +742,7 @@ function Products() {
             <div style={S.emptyIcon}>🔍</div>
             <h3 style={S.emptyTitle}>No products found</h3>
             <p style={S.emptySub}>Try adjusting your search or filter criteria</p>
-            <button style={S.emptyResetBtn} onClick={() => { setSearch(""); setCategory("All"); setPriceRange([0, maxPrice]); }}>
+            <button style={S.emptyResetBtn} onClick={() => { setSearch(""); setCategory("All"); setPriceRange([0, maxPrice]); setActiveTag(null); }}>
               Reset All Filters
             </button>
           </div>
@@ -577,6 +780,7 @@ const S = {
     fontFamily: "'Inter', sans-serif",
   },
 
+  /* ── Hero ── */
   hero: {
     position: "relative",
     background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
@@ -585,10 +789,7 @@ const S = {
   },
   heroBg: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     background: "radial-gradient(circle at 20% 80%, rgba(59,130,246,0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(139,92,246,0.15) 0%, transparent 50%)",
     pointerEvents: "none",
   },
@@ -674,46 +875,10 @@ const S = {
     cursor: "pointer",
     color: "#64748b",
   },
-  particle1: {
-    position: "absolute",
-    top: "20%",
-    left: "10%",
-    width: 300,
-    height: 300,
-    background: "radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)",
-    borderRadius: "50%",
-    pointerEvents: "none",
-  },
-  particle2: {
-    position: "absolute",
-    bottom: "10%",
-    right: "5%",
-    width: 400,
-    height: 400,
-    background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)",
-    borderRadius: "50%",
-    pointerEvents: "none",
-  },
-  particle3: {
-    position: "absolute",
-    top: "50%",
-    right: "15%",
-    width: 150,
-    height: 150,
-    background: "radial-gradient(circle, rgba(236,72,153,0.08) 0%, transparent 70%)",
-    borderRadius: "50%",
-    pointerEvents: "none",
-  },
-  particle4: {
-    position: "absolute",
-    bottom: "30%",
-    left: "20%",
-    width: 200,
-    height: 200,
-    background: "radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)",
-    borderRadius: "50%",
-    pointerEvents: "none",
-  },
+  particle1: { position: "absolute", top: "20%", left: "10%", width: 300, height: 300, background: "radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" },
+  particle2: { position: "absolute", bottom: "10%", right: "5%", width: 400, height: 400, background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" },
+  particle3: { position: "absolute", top: "50%", right: "15%", width: 150, height: 150, background: "radial-gradient(circle, rgba(236,72,153,0.08) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" },
+  particle4: { position: "absolute", bottom: "30%", left: "20%", width: 200, height: 200, background: "radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" },
 
   main: {
     maxWidth: 1400,
@@ -721,40 +886,232 @@ const S = {
     padding: "32px 24px 60px",
   },
 
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: 16,
-    marginBottom: 32,
-  },
-  statCard: {
-    padding: "20px 24px",
-    borderRadius: 20,
+  /* ── Promo Banner ── */
+  promoBanner: {
     display: "flex",
     alignItems: "center",
-    gap: 16,
-    color: "white",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+    background: "linear-gradient(135deg, #0f172a, #1e293b)",
+    borderRadius: 20,
+    padding: "16px 24px",
+    marginBottom: 24,
+    gap: 24,
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.06)",
   },
-  statIcon: {
-    fontSize: 32,
+  promoLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flexShrink: 0,
   },
-  statContent: {
-    flex: 1,
+  promoFireIcon: {
+    fontSize: 28,
+    animation: "pulse 1.5s ease-in-out infinite",
   },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: 500,
-    opacity: 0.85,
-    letterSpacing: "0.05em",
+  promoLabel: {
+    fontSize: 10,
+    fontWeight: 600,
+    color: "#94a3b8",
+    letterSpacing: "0.08em",
     textTransform: "uppercase",
     marginBottom: 4,
   },
-  statValue: {
-    fontSize: 28,
+  promoCountdown: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+  },
+  promoDigit: {
+    background: "rgba(239,68,68,0.15)",
+    border: "1px solid rgba(239,68,68,0.3)",
+    color: "#f87171",
+    fontSize: 18,
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums",
+    borderRadius: 8,
+    padding: "4px 10px",
+    minWidth: 42,
+    textAlign: "center",
+    animation: "countPulse 1s ease-in-out infinite",
+  },
+  promoColon: {
+    color: "#f87171",
+    fontSize: 18,
     fontWeight: 800,
   },
+  promoCenter: {
+    flex: 1,
+    overflow: "hidden",
+  },
+  tickerInner: {
+    display: "flex",
+    animation: "marquee 28s linear infinite",
+  },
+  tickerText: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#cbd5e1",
+    whiteSpace: "nowrap",
+    paddingRight: 32,
+  },
+  promoBtn: {
+    flexShrink: 0,
+    padding: "10px 20px",
+    borderRadius: 40,
+    border: "none",
+    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    whiteSpace: "nowrap",
+    transition: "opacity 0.2s",
+  },
 
+  /* ── Trending Tags ── */
+  trendSection: {
+    marginBottom: 24,
+  },
+  trendHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+  trendTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: "#0f172a",
+  },
+  trendSub: {
+    fontSize: 12,
+    color: "#94a3b8",
+    background: "#f1f5f9",
+    padding: "2px 10px",
+    borderRadius: 20,
+  },
+  trendTags: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  trendTag: {
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "8px 18px",
+    borderRadius: 40,
+    fontSize: 13,
+    fontWeight: 500,
+    border: "1.5px solid #e2e8f0",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    transition: "all 0.2s",
+  },
+  hotDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "#ef4444",
+    animation: "badgeGlow 1.5s ease-in-out infinite",
+    display: "inline-block",
+  },
+
+  /* ── Recently Viewed ── */
+  rvSection: {
+    marginBottom: 28,
+    background: "#ffffff",
+    borderRadius: 20,
+    padding: "18px 20px",
+    border: "1px solid #e2e8f0",
+  },
+  rvHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  rvTitle: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#0f172a",
+  },
+  rvCount: {
+    fontSize: 11,
+    color: "#94a3b8",
+    background: "#f1f5f9",
+    padding: "2px 10px",
+    borderRadius: 20,
+  },
+  rvScroll: {
+    overflowX: "auto",
+  },
+  rvRow: {
+    display: "flex",
+    gap: 12,
+    paddingBottom: 4,
+  },
+  rvCard: {
+    flexShrink: 0,
+    width: 110,
+    background: "#f8fafc",
+    borderRadius: 14,
+    overflow: "hidden",
+    cursor: "pointer",
+    border: "1px solid #e2e8f0",
+    transition: "all 0.2s",
+  },
+  rvImgBox: {
+    width: "100%",
+    height: 80,
+    background: "#f1f5f9",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rvImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    transition: "transform 0.3s",
+  },
+  rvImgPlaceholder: {
+    fontSize: 28,
+  },
+  rvInfo: {
+    padding: "8px 10px",
+  },
+  rvName: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#1e293b",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    marginBottom: 2,
+  },
+  rvPrice: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#3b82f6",
+  },
+
+  /* ── Active tag inline badge ── */
+  activeTagBadge: {
+    marginLeft: 8,
+    background: "#eff6ff",
+    color: "#3b82f6",
+    fontSize: 11,
+    fontWeight: 600,
+    padding: "2px 10px",
+    borderRadius: 20,
+    cursor: "pointer",
+  },
+
+  /* ── Toolbar ── */
   toolbar: {
     display: "flex",
     justifyContent: "space-between",
@@ -884,6 +1241,7 @@ const S = {
     gap: 16,
   },
 
+  /* ── Product Card ── */
   card: {
     background: "#ffffff",
     borderRadius: 20,
@@ -892,7 +1250,6 @@ const S = {
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     cursor: "pointer",
   },
-
   imgBox: {
     position: "relative",
     cursor: "pointer",
@@ -1182,6 +1539,7 @@ const S = {
     borderRadius: 20,
   },
 
+  /* ── Skeletons ── */
   skelCard: {
     background: "#ffffff",
     borderRadius: 20,
@@ -1202,6 +1560,7 @@ const S = {
     animation: "shimmer 1.4s infinite linear",
   },
 
+  /* ── Empty state ── */
   emptyBox: {
     background: "#ffffff",
     borderRadius: 24,
@@ -1209,21 +1568,9 @@ const S = {
     textAlign: "center",
     border: "1px solid #e2e8f0",
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: 700,
-    color: "#1e293b",
-    marginBottom: 8,
-  },
-  emptySub: {
-    fontSize: 14,
-    color: "#64748b",
-    marginBottom: 24,
-  },
+  emptyIcon: { fontSize: 64, marginBottom: 20 },
+  emptyTitle: { fontSize: 24, fontWeight: 700, color: "#1e293b", marginBottom: 8 },
+  emptySub: { fontSize: 14, color: "#64748b", marginBottom: 24 },
   emptyResetBtn: {
     padding: "10px 24px",
     borderRadius: 40,
@@ -1237,26 +1584,20 @@ const S = {
   },
 };
 
-// Add keyframes
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  @keyframes shimmer {
-    0% { background-position: -600px 0; }
-    100% { background-position: 600px 0; }
-  }
-  .cat-chip:hover {
-    transform: translateY(-2px);
-  }
-  .prod-overlay:hover {
-    opacity: 1 !important;
-  }
-  .prod-overlay button:hover {
-    transform: scale(1.05);
-  }
+/* keyframes injected once */
+const extraStyles = document.createElement("style");
+extraStyles.textContent = `
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes shimmer { 0% { background-position: -600px 0; } 100% { background-position: 600px 0; } }
+  @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  @keyframes countPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  @keyframes badgeGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
+  .cat-chip:hover { transform: translateY(-2px); }
+  .prod-overlay button:hover { transform: scale(1.05); }
 `;
-document.head.appendChild(styleSheet);
+if (!document.getElementById("prod-extra-styles")) {
+  extraStyles.id = "prod-extra-styles";
+  document.head.appendChild(extraStyles);
+}
 
 export default Products;
