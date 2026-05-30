@@ -198,11 +198,25 @@ const Checkout = () => {
     return date.toDateString();
   }, []);
 
+  // ✅ Update order status after payment success
+  const updateOrderPaymentStatus = async (orderId, paymentId, status) => {
+    try {
+      const response = await axios.patch(
+        `http://localhost:8080/api/orders/${orderId}/payment-status`,
+        { paymentId, status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log("✅ Payment status updated:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Failed to update payment status:", error);
+      throw error;
+    }
+  };
+
   /* ────────────────────────────────────────────────────────────
      SUBMIT HANDLER
-     FIX: Razorpay flow — razorpayPaymentId sent with checkout
-          so backend sets CONFIRMED + PAID in one shot.
-          No separate PATCH call needed.
+     FIX: Razorpay flow — After payment success, update order status
   ─────────────────────────────────────────────────────────────*/
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -224,23 +238,32 @@ const Checkout = () => {
         /* ✅ onSuccess — payment verified by razorpay.js before reaching here */
         async (paymentResponse) => {
           try {
-            console.log("Razorpay payment verified:", paymentResponse);
-
-            // Single API call — backend sees razorpayPaymentId ≠ null → sets CONFIRMED + PAID
+            console.log("=== PAYMENT SUCCESS CALLBACK ===");
+            console.log("Payment Response:", paymentResponse);
+            
+            // Step 1: Create order in backend
+            console.log("Creating order in backend...");
             const orderResponse = await axios.post(
               "http://localhost:8080/api/orders/checkout",
               {
                 ...formData,
                 discount,
-                totalAmount:        calculations.finalTotal,
-                razorpayPaymentId:  paymentResponse.razorpay_payment_id,   // ✅ key field
-                razorpayOrderId:    paymentResponse.razorpay_order_id,
+                totalAmount: calculations.finalTotal,
+                razorpayPaymentId: paymentResponse.razorpay_payment_id,
+                razorpayOrderId: paymentResponse.razorpay_order_id,
               },
               { headers: { Authorization: `Bearer ${token}` } }
             );
 
             console.log("Order created:", orderResponse.data);
-            // Should now show: orderStatus: "CONFIRMED", paymentStatus: "PAID"
+            
+            // Step 2: ✅ CRITICAL - Update order status to CONFIRMED & PAID after successful payment
+            console.log("Updating order payment status...");
+            await updateOrderPaymentStatus(
+              orderResponse.data.orderId,
+              paymentResponse.razorpay_payment_id,
+              "SUCCESS"
+            );
 
             toast.success("Order Placed Successfully!");
             navigate(`/order-success?orderId=${orderResponse.data.orderId}`);

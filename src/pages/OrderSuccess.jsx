@@ -1,4 +1,4 @@
-import { useEffect, useState} from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 
@@ -263,7 +263,13 @@ const formatDate = (d) => {
 const fmt = (n) => (n ?? 0).toLocaleString("en-IN");
 
 const STEPS = ["Placed", "Processing", "Shipped", "Delivered"];
-const STATUS_STEP = { PLACED: 0, PROCESSING: 1, SHIPPED: 2, DELIVERED: 3 };
+const STATUS_STEP = { 
+  PENDING: 0, 
+  CONFIRMED: 1, 
+  PROCESSING: 1, 
+  SHIPPED: 2, 
+  DELIVERED: 3 
+};
 
 /* ─── icons (inline SVG, no deps) ─────────── */
 const CheckIcon = () => (
@@ -292,20 +298,38 @@ const OrderSuccess = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hovered, setHovered] = useState(null);
+  const [refreshCount, setRefreshCount] = useState(0);
 
   const token =
     localStorage.getItem("customerToken") || localStorage.getItem("adminToken");
 
-  useEffect(() => {
-    if (!orderId) { setLoading(false); return; }
-    axios
-      .get(`http://localhost:8080/api/orders/${orderId}`, {
+  // ✅ Fetch order details function
+  const fetchOrderDetails = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      const response = await axios.get(`http://localhost:8080/api/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((r) => setOrder(r.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [orderId, token]);
+      });
+      setOrder(response.data);
+      
+      // ✅ If order is still PENDING and it's a Razorpay order, refresh after 2 seconds (max 3 times)
+      if (response.data.orderStatus === "PENDING" && 
+          response.data.paymentMethod === "RAZORPAY" && 
+          refreshCount < 3) {
+        setTimeout(() => {
+          setRefreshCount(prev => prev + 1);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Error fetching order:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [orderId, token, refreshCount]);
+
+  useEffect(() => {
+    fetchOrderDetails();
+  }, [fetchOrderDetails]);
 
   /* inject keyframe for spinner */
   useEffect(() => {
@@ -322,8 +346,7 @@ const OrderSuccess = () => {
   }, []);
 
   /* ── active step ── */
-  const activeStep =
-    order ? (STATUS_STEP[order.orderStatus?.toUpperCase()] ?? 0) : 0;
+  const activeStep = order ? (STATUS_STEP[order.orderStatus?.toUpperCase()] ?? 0) : 0;
 
   /* ── loading ── */
   if (loading) {
@@ -356,6 +379,15 @@ const OrderSuccess = () => {
     );
   }
 
+  // ✅ Determine status display (show CONFIRMED if paymentMethod is RAZORPAY and status is PENDING - will update)
+  const displayOrderStatus = (order.orderStatus === "PENDING" && order.paymentMethod === "RAZORPAY" && refreshCount > 0) 
+    ? "CONFIRMED" 
+    : order.orderStatus;
+  
+  const displayPaymentStatus = (order.paymentStatus === "PENDING" && order.paymentMethod === "RAZORPAY" && refreshCount > 0)
+    ? "PAID"
+    : order.paymentStatus;
+
   return (
     <div style={S.page}>
       <div style={S.card}>
@@ -384,12 +416,14 @@ const OrderSuccess = () => {
             <div style={S.statCell}>
               <span style={S.statIcon}>📦</span>
               <span style={S.statLabel}>Status</span>
-              <span style={S.statValSuccess}>{order.orderStatus}</span>
+              <span style={S.statValSuccess}>{displayOrderStatus}</span>
             </div>
             <div style={S.statCell}>
               <span style={S.statIcon}>💳</span>
               <span style={S.statLabel}>Payment</span>
-              <span style={S.statValWarn}>{order.paymentStatus}</span>
+              <span style={displayPaymentStatus === "PAID" ? S.statValSuccess : S.statValWarn}>
+                {displayPaymentStatus}
+              </span>
             </div>
             <div style={S.statCell}>
               <span style={S.statIcon}>🧾</span>
@@ -397,6 +431,13 @@ const OrderSuccess = () => {
               <span style={S.statValAccent}>₹{fmt(order.grandTotal)}</span>
             </div>
           </div>
+
+          {/* Refresh indicator for Razorpay orders */}
+          {order.paymentMethod === "RAZORPAY" && order.orderStatus === "PENDING" && refreshCount < 3 && (
+            <div style={{ textAlign: "center", marginBottom: 16, fontSize: 12, color: "#c27c0e" }}>
+              ⏳ Verifying payment... please wait
+            </div>
+          )}
 
           {/* Delivery stepper */}
           <div style={S.stepperWrap}>

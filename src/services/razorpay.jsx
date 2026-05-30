@@ -16,7 +16,7 @@ const loadRazorpayScript = () => {
 
 export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuccess, onError) => {
   const isScriptLoaded = await loadRazorpayScript();
-  
+
   if (!isScriptLoaded) {
     onError("Failed to load Razorpay SDK");
     return;
@@ -25,7 +25,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
   try {
     // Create order on backend
     const orderResponse = await axios.post(
-      "http://localhost:8080/api/payment/create-order",
+      `${import.meta.env.VITE_API_URL}/api/payment/create-order`,
       { amount: Math.round(amount * 100) },
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -35,19 +35,48 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
     const options = {
       key: key,
       amount: orderAmount,
-      currency: currency,
+      currency: currency || "INR",
       name: "ShopEase",
-      description: `Order Payment`,
+      description: "Order Payment",
       order_id: orderId,
+
+      // ✅ UPI with QR code + all other methods
+      config: {
+        display: {
+          blocks: {
+            upi_block: {
+              name: "Pay via UPI",
+              instruments: [
+                {
+                  method: "upi",
+                  flows: ["qr", "intent", "collect"], // QR code + UPI apps + UPI ID entry
+                },
+              ],
+            },
+            other: {
+              name: "Other Payment Methods",
+              instruments: [
+                { method: "card" },
+                { method: "netbanking" },
+                { method: "wallet" },
+              ],
+            },
+          },
+          sequence: ["block.upi_block", "block.other"], // UPI shown first
+          preferences: {
+            show_default_blocks: false,
+          },
+        },
+      },
+
       handler: async (response) => {
-        // Verify payment on backend
         try {
           const verifyResponse = await axios.post(
-            "http://localhost:8080/api/payment/verify",
+            `${import.meta.env.VITE_API_URL}/api/payment/verify`,
             {
-              orderId: response.razorpay_order_id,
+              orderId:   response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature
+              signature: response.razorpay_signature,
             },
             { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -61,25 +90,41 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
           onError("Payment verification failed");
         }
       },
+
       prefill: {
-        name: orderDetails.fullName,
-        email: orderDetails.email,
-        contact: orderDetails.phone
+        name:    orderDetails.fullName,
+        email:   orderDetails.email,
+        contact: orderDetails.phone,
       },
+
       notes: {
-        address: orderDetails.address
+        address: orderDetails.address,
       },
+
       theme: {
-        color: "#4f46e5"
+        color: "#4f46e5", // same as before
       },
+
       modal: {
         ondismiss: () => {
           onError("Payment cancelled");
-        }
-      }
+        },
+        confirm_close: true,
+        animation: true,
+      },
     };
 
     const razorpay = new window.Razorpay(options);
+
+    // Handle payment failure
+    razorpay.on("payment.failed", (response) => {
+      const reason =
+        response.error?.description ||
+        response.error?.reason      ||
+        "Payment failed. Please try again.";
+      onError(reason);
+    });
+
     razorpay.open();
 
   } catch (error) {
