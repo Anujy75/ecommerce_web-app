@@ -28,7 +28,7 @@ const Cart = () => {
         return;
       }
 
-      const response = await API.get("/api/cart", {
+      const response = await API.get("/cart", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -78,7 +78,7 @@ const Cart = () => {
 
   try {
     const response = await API.put(
-      `/api/cart/update/${cartItemId}`,
+      `/cart/update/${cartItemId}`,
       { quantity: newQuantity },
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -106,7 +106,7 @@ const removeItem = async (cartItemId) => {
   console.log("Removing item:", cartItemId); // Debug
   
   try {
-    await API.delete(`/api/cart/remove/${cartItemId}`, {
+    await API.delete(`/cart/remove/${cartItemId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
      await loadCart();
@@ -125,7 +125,7 @@ const removeItem = async (cartItemId) => {
   const clearCart = async () => {
     if (window.confirm("Are you sure you want to clear your entire cart?")) {
       try {
-        await API.delete("/api/cart/clear", {
+        await API.delete("/cart/clear", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -432,5 +432,7 @@ styleSheet.textContent = `
 document.head.appendChild(styleSheet);
 
 export default Cart;
+
+
 
 

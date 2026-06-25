@@ -78,7 +78,7 @@ const ChangePassword = () => {
 
     try {
       const response = await API.post(
-        "/api/user/change-password",
+        "/user/change-password",
         {
           oldPassword: formData.oldPassword,
           newPassword: formData.newPassword,
@@ -408,5 +408,7 @@ const styles = {
 };
 
 export default ChangePassword;
+
+
 
 

@@ -27,7 +27,7 @@ const AdminDashboard = () => {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const response = await API.get("/api/products/all", {
+      const response = await API.get("/products/all", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(response.data);
@@ -65,12 +65,12 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       if (editingProduct) {
-        await API.put(`/api/products/${editingProduct.id}`, formData, {
+        await API.put(`/products/${editingProduct.id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showMessage("Product updated successfully!", "success");
       } else {
-        await API.post("/api/products", formData, {
+        await API.post("/products", formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showMessage("Product added successfully!", "success");
@@ -89,7 +89,7 @@ const AdminDashboard = () => {
       try {
         const currentToken = localStorage.getItem("token");
         await API.delete(
-          `/api/products/${id}`,
+          `/products/${id}`,
           { headers: { 'Authorization': `Bearer ${currentToken}` } }
         );
         showMessage(`"${name}" deleted successfully!`, "success");
@@ -107,7 +107,7 @@ const AdminDashboard = () => {
     const updatedProduct = { ...product, stock: newStock };
     
     try {
-      await API.put(`/api/products/${product.id}`, updatedProduct, {
+      await API.put(`/products/${product.id}`, updatedProduct, {
         headers: { Authorization: `Bearer ${token}` }
       });
       showMessage(`Product ${newStock > 0 ? "marked IN STOCK" : "marked OUT OF STOCK"}!`, "success");
@@ -806,5 +806,7 @@ styleSheet.textContent = `
 document.head.appendChild(styleSheet);
 
 export default AdminDashboard;
+
+
 
 

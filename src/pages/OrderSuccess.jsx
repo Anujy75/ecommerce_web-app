@@ -307,7 +307,7 @@ const OrderSuccess = () => {
   const fetchOrderDetails = useCallback(async () => {
     if (!orderId) return;
     try {
-      const response = await API.get(`/api/orders/${orderId}`, {
+      const response = await API.get(`/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrder(response.data);
@@ -560,5 +560,7 @@ const OrderSuccess = () => {
 };
 
 export default OrderSuccess;
+
+
 
 

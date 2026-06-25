@@ -39,7 +39,7 @@ const Login = () => {
     try {
 
       const response = await API.post(
-        "/api/auth/login",
+        "/auth/login",
         formData
       );
 
@@ -434,5 +434,7 @@ const styles = {
 };
 
 export default Login;
+
+
 
 

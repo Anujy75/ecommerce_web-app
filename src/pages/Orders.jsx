@@ -232,7 +232,7 @@ const Orders = () => {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const res = await API.get("/api/orders/user", {
+      const res = await API.get("/orders/user", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrders(res.data);
@@ -594,5 +594,7 @@ const S = {
 };
 
 export default Orders;
+
+
 
 

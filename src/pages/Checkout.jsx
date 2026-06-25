@@ -149,7 +149,7 @@ const Checkout = () => {
   /* ── load cart ── */
   const loadCart = useCallback(async () => {
     try {
-      const response = await API.get("/api/cart", {
+      const response = await API.get("/cart", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCart(response.data.items || []);
@@ -247,7 +247,7 @@ const Checkout = () => {
   const updateOrderPaymentStatus = async (orderId, paymentId, status) => {
     try {
       const response = await axios.patch(
-        `/api/orders/${orderId}/payment-status`,
+        `/orders/${orderId}/payment-status`,
         { paymentId, status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -300,7 +300,7 @@ const Checkout = () => {
             // Step 1: Create order in backend
             console.log("Creating order in backend...");
             const orderResponse = await API.post(
-              "/api/orders/checkout",
+              "/orders/checkout",
               {
                 ...shippingData,
                 discount,
@@ -345,7 +345,7 @@ const Checkout = () => {
     setPlacing(true);
     try {
       const response = await API.post(
-        "/api/orders/checkout",
+        "/orders/checkout",
         { ...shippingData, discount, totalAmount: calculations.finalTotal },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -671,5 +671,7 @@ const S = {
 };
 
 export default Checkout;
+
+
 
 

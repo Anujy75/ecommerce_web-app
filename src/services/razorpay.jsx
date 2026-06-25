@@ -25,7 +25,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
   try {
     // Create order on backend
     const orderResponse = await API.post(
-      `/api/payment/create-order`,  // ✅ FIXED
+      `/payment/create-order`,  // ✅ FIXED
       { amount: Math.round(amount * 100) },
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -71,7 +71,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
       handler: async (response) => {
         try {
           const verifyResponse = await API.post(
-            `/api/payment/verify`,  // ✅ FIXED
+            `/payment/verify`,  // ✅ FIXED
             {
               orderId:   response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,
@@ -129,5 +129,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
     onError("Failed to create payment order");
   }
 };
+
+
 
 

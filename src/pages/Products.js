@@ -545,7 +545,7 @@ function Products() {
     if (!token) { toast.error("Please login first"); navigate("/portal"); return; }
     setAdding(prev => ({ ...prev, [product.id]: true }));
     try {
-      await API.post("/api/cart/add",
+      await API.post("/cart/add",
         { productId: product.id, quantity: 1 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -562,7 +562,7 @@ function Products() {
   const handleBuyNow = useCallback(async (product) => {
     if (!token) { toast.error("Please login first"); navigate("/portal"); return; }
     try {
-      await API.post("/api/cart/add",
+      await API.post("/cart/add",
         { productId: product.id, quantity: 1 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -1601,5 +1601,7 @@ if (!document.getElementById("prod-extra-styles")) {
 }
 
 export default Products;
+
+
 
 
