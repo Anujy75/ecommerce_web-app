@@ -545,7 +545,7 @@ function Products() {
     if (!token) { toast.error("Please login first"); navigate("/portal"); return; }
     setAdding(prev => ({ ...prev, [product.id]: true }));
     try {
-      await axios.post("http://localhost:8080/api/cart/add",
+      await axios.post("/api/cart/add",
         { productId: product.id, quantity: 1 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -562,7 +562,7 @@ function Products() {
   const handleBuyNow = useCallback(async (product) => {
     if (!token) { toast.error("Please login first"); navigate("/portal"); return; }
     try {
-      await axios.post("http://localhost:8080/api/cart/add",
+      await axios.post("/api/cart/add",
         { productId: product.id, quantity: 1 },
         { headers: { Authorization: `Bearer ${token}` } }
       );

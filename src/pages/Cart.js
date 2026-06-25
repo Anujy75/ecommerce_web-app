@@ -28,7 +28,7 @@ const Cart = () => {
         return;
       }
 
-      const response = await axios.get("http://localhost:8080/api/cart", {
+      const response = await axios.get("/api/cart", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -78,7 +78,7 @@ const Cart = () => {
 
   try {
     const response = await axios.put(
-      `http://localhost:8080/api/cart/update/${cartItemId}`,
+      `/api/cart/update/${cartItemId}`,
       { quantity: newQuantity },
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -106,7 +106,7 @@ const removeItem = async (cartItemId) => {
   console.log("Removing item:", cartItemId); // Debug
   
   try {
-    await axios.delete(`http://localhost:8080/api/cart/remove/${cartItemId}`, {
+    await axios.delete(`/api/cart/remove/${cartItemId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
      await loadCart();
@@ -125,7 +125,7 @@ const removeItem = async (cartItemId) => {
   const clearCart = async () => {
     if (window.confirm("Are you sure you want to clear your entire cart?")) {
       try {
-        await axios.delete("http://localhost:8080/api/cart/clear", {
+        await axios.delete("/api/cart/clear", {
           headers: { Authorization: `Bearer ${token}` },
         });
 

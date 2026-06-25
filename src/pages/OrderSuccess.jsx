@@ -307,7 +307,7 @@ const OrderSuccess = () => {
   const fetchOrderDetails = useCallback(async () => {
     if (!orderId) return;
     try {
-      const response = await axios.get(`http://localhost:8080/api/orders/${orderId}`, {
+      const response = await axios.get(`/api/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrder(response.data);

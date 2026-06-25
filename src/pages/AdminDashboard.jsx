@@ -27,7 +27,7 @@ const AdminDashboard = () => {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const response = await axios.get("http://localhost:8080/api/products/all", {
+      const response = await axios.get("/api/products/all", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(response.data);
@@ -65,12 +65,12 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       if (editingProduct) {
-        await axios.put(`http://localhost:8080/api/products/${editingProduct.id}`, formData, {
+        await axios.put(`/api/products/${editingProduct.id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showMessage("Product updated successfully!", "success");
       } else {
-        await axios.post("http://localhost:8080/api/products", formData, {
+        await axios.post("/api/products", formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showMessage("Product added successfully!", "success");
@@ -89,7 +89,7 @@ const AdminDashboard = () => {
       try {
         const currentToken = localStorage.getItem("token");
         await axios.delete(
-          `http://localhost:8080/api/products/${id}`,
+          `/api/products/${id}`,
           { headers: { 'Authorization': `Bearer ${currentToken}` } }
         );
         showMessage(`"${name}" deleted successfully!`, "success");
@@ -107,7 +107,7 @@ const AdminDashboard = () => {
     const updatedProduct = { ...product, stock: newStock };
     
     try {
-      await axios.put(`http://localhost:8080/api/products/${product.id}`, updatedProduct, {
+      await axios.put(`/api/products/${product.id}`, updatedProduct, {
         headers: { Authorization: `Bearer ${token}` }
       });
       showMessage(`Product ${newStock > 0 ? "marked IN STOCK" : "marked OUT OF STOCK"}!`, "success");

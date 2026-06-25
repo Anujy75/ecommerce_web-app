@@ -39,7 +39,7 @@ const Login = () => {
     try {
 
       const response = await axios.post(
-        "http://localhost:8080/api/auth/login",
+        "/api/auth/login",
         formData
       );
 

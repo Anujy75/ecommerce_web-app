@@ -232,7 +232,7 @@ const Orders = () => {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const res = await axios.get("http://localhost:8080/api/orders/user", {
+      const res = await axios.get("/api/orders/user", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrders(res.data);
