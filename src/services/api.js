@@ -1,8 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  //baseURL: "/api"
-  baseURL: import.meta.env.VITE_API_URL + "/api" 
+  baseURL: "https://shopease-backend-5nf5.onrender.com/api"
 });
 
 // ✅ Har request mein automatically token add hoga
