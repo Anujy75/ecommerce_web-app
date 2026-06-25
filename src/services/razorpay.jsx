@@ -25,7 +25,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
   try {
     // Create order on backend
     const orderResponse = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/payment/create-order`,
+      `http://localhost:8080/api/payment/create-order`,  // ✅ FIXED
       { amount: Math.round(amount * 100) },
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -40,7 +40,6 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
       description: "Order Payment",
       order_id: orderId,
 
-      // ✅ UPI with QR code + all other methods
       config: {
         display: {
           blocks: {
@@ -49,7 +48,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
               instruments: [
                 {
                   method: "upi",
-                  flows: ["qr", "intent", "collect"], // QR code + UPI apps + UPI ID entry
+                  flows: ["qr", "intent", "collect"],
                 },
               ],
             },
@@ -62,7 +61,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
               ],
             },
           },
-          sequence: ["block.upi_block", "block.other"], // UPI shown first
+          sequence: ["block.upi_block", "block.other"],
           preferences: {
             show_default_blocks: false,
           },
@@ -72,7 +71,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
       handler: async (response) => {
         try {
           const verifyResponse = await axios.post(
-            `${import.meta.env.VITE_API_URL}/api/payment/verify`,
+            `http://localhost:8080/api/payment/verify`,  // ✅ FIXED
             {
               orderId:   response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,
@@ -102,7 +101,7 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
       },
 
       theme: {
-        color: "#4f46e5", // same as before
+        color: "#4f46e5",
       },
 
       modal: {
@@ -116,7 +115,6 @@ export const initiateRazorpayPayment = async (amount, orderDetails, token, onSuc
 
     const razorpay = new window.Razorpay(options);
 
-    // Handle payment failure
     razorpay.on("payment.failed", (response) => {
       const reason =
         response.error?.description ||

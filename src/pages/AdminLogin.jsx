@@ -36,7 +36,7 @@ const AdminLogin = () => {
         localStorage.setItem("token", token);
         localStorage.setItem("role", role);
         
-        toast.success(`Welcome Admin! 👑`);
+        toast.success(`Welcome Admin! `);
         
         // ✅ Force navigation after state update
         setTimeout(() => {
@@ -53,7 +53,7 @@ const AdminLogin = () => {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.logo}>
-          <span style={styles.logoIcon}>👑</span>
+          <span style={styles.logoIcon}></span>
           <span style={styles.logoText}>ShopEase Admin</span>
         </div>
         <h2 style={styles.title}>Admin Login</h2>

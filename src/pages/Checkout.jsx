@@ -29,6 +29,46 @@ const parseAddress = (data) => {
   return { address, city, pincode };
 };
 
+const PATTERNS = {
+  fullName: /^[A-Za-z][A-Za-z\s'.-]{1,49}$/,
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,
+  phone: /^[6-9]\d{9}$/,
+  city: /^[A-Za-z][A-Za-z\s'.-]{1,49}$/,
+  pincode: /^[1-9]\d{5}$/,
+};
+
+const normalizeShippingData = (data) => ({
+  ...data,
+  fullName: data.fullName.trim().replace(/\s+/g, " "),
+  email: data.email.trim().toLowerCase(),
+  phone: data.phone.replace(/\D/g, ""),
+  address: data.address.trim().replace(/\s+/g, " "),
+  city: data.city.trim().replace(/\s+/g, " "),
+  pincode: data.pincode.replace(/\D/g, ""),
+});
+
+const validateShippingDetails = (data) => {
+  if (!PATTERNS.fullName.test(data.fullName)) {
+    return "Invalid name. Use 2-50 letters only.";
+  }
+  if (!PATTERNS.email.test(data.email)) {
+    return "Invalid email address.";
+  }
+  if (!PATTERNS.phone.test(data.phone)) {
+    return "Invalid phone number. Enter a valid 10-digit Indian mobile number.";
+  }
+  if (!PATTERNS.city.test(data.city)) {
+    return "Invalid city. Use letters only.";
+  }
+  if (!PATTERNS.pincode.test(data.pincode)) {
+    return "Invalid pincode. Enter a valid 6-digit Indian PIN code.";
+  }
+  if (data.address.length < 8) {
+    return "Invalid address. Please enter a complete address.";
+  }
+  return "";
+};
+
 const LocationButton = ({ onDetect, detecting }) => (
   <button
     type="button"
@@ -124,8 +164,13 @@ const Checkout = () => {
   useEffect(() => { loadCart(); }, [loadCart]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (["address", "city", "pincode"].includes(e.target.name)) {
+    const { name, value } = e.target;
+    const nextValue = ["phone", "pincode"].includes(name)
+      ? value.replace(/\D/g, "").slice(0, name === "phone" ? 10 : 6)
+      : value;
+
+    setFormData({ ...formData, [name]: nextValue });
+    if (["address", "city", "pincode"].includes(name)) {
       setLocationDetected(false);
     }
   };
@@ -221,17 +266,28 @@ const Checkout = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const shippingData = normalizeShippingData(formData);
+    const validationError = validateShippingDetails(shippingData);
+
+    if (validationError) {
+      toast.error(validationError);
+      setFormData(shippingData);
+      return;
+    }
+
+    setFormData(shippingData);
+
     /* ── RAZORPAY ── */
-    if (formData.paymentMethod === "RAZORPAY") {
+    if (shippingData.paymentMethod === "RAZORPAY") {
       setIsRazorpayLoading(true);
 
       await initiateRazorpayPayment(
         calculations.finalTotal,
         {
-          fullName: formData.fullName,
-          email:    formData.email,
-          phone:    formData.phone,
-          address:  formData.address,
+          fullName: shippingData.fullName,
+          email:    shippingData.email,
+          phone:    shippingData.phone,
+          address:  shippingData.address,
         },
         token,
 
@@ -246,7 +302,7 @@ const Checkout = () => {
             const orderResponse = await axios.post(
               "http://localhost:8080/api/orders/checkout",
               {
-                ...formData,
+                ...shippingData,
                 discount,
                 totalAmount: calculations.finalTotal,
                 razorpayPaymentId: paymentResponse.razorpay_payment_id,
@@ -290,7 +346,7 @@ const Checkout = () => {
     try {
       const response = await axios.post(
         "http://localhost:8080/api/orders/checkout",
-        { ...formData, discount, totalAmount: calculations.finalTotal },
+        { ...shippingData, discount, totalAmount: calculations.finalTotal },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success("Order Placed Successfully!");
@@ -348,7 +404,7 @@ const Checkout = () => {
         <div style={S.layout} className="co-layout">
 
           {/* ── LEFT: Form ── */}
-          <form onSubmit={handleSubmit} style={S.formCard}>
+          <form onSubmit={handleSubmit} style={S.formCard} noValidate>
 
             {/* Shipping */}
             <div style={S.section}>
@@ -367,15 +423,15 @@ const Checkout = () => {
               </div>
 
               <div style={S.grid2} className="co-grid2">
-                <InputField name="fullName"  placeholder="Full Name"     value={formData.fullName}  onChange={handleChange} focused={focused} setFocused={setFocused} />
+                <InputField name="fullName"  placeholder="Full Name"     value={formData.fullName}  onChange={handleChange} focused={focused} setFocused={setFocused} pattern="[A-Za-z][A-Za-z\s'.-]{1,49}" title="Use 2-50 letters only" />
                 <InputField name="email"     type="email" placeholder="Email Address" value={formData.email} onChange={handleChange} focused={focused} setFocused={setFocused} />
               </div>
               <div style={S.grid2} className="co-grid2">
-                <InputField name="phone"     placeholder="Phone Number"  value={formData.phone}     onChange={handleChange} focused={focused} setFocused={setFocused} />
-                <InputField name="city"      placeholder="City"          value={formData.city}      onChange={handleChange} focused={focused} setFocused={setFocused} highlighted={locationDetected && !!formData.city} />
+                <InputField name="phone"     placeholder="Phone Number"  value={formData.phone}     onChange={handleChange} focused={focused} setFocused={setFocused} inputMode="numeric" maxLength={10} pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit Indian mobile number" />
+                <InputField name="city"      placeholder="City"          value={formData.city}      onChange={handleChange} focused={focused} setFocused={setFocused} highlighted={locationDetected && !!formData.city} pattern="[A-Za-z][A-Za-z\s'.-]{1,49}" title="Use letters only" />
               </div>
               <div style={S.grid2} className="co-grid2">
-                <InputField name="pincode"   placeholder="Pincode"       value={formData.pincode}   onChange={handleChange} focused={focused} setFocused={setFocused} highlighted={locationDetected && !!formData.pincode} />
+                <InputField name="pincode"   placeholder="Pincode"       value={formData.pincode}   onChange={handleChange} focused={focused} setFocused={setFocused} highlighted={locationDetected && !!formData.pincode} inputMode="numeric" maxLength={6} pattern="[1-9][0-9]{5}" title="Enter a valid 6-digit Indian PIN code" />
                 <div />
               </div>
 
@@ -513,12 +569,23 @@ const Checkout = () => {
 };
 
 /* ─── InputField ─────────────────────────────── */
-const InputField = ({ name, type = "text", placeholder, value, onChange, focused, setFocused, highlighted }) => (
+const InputField = ({
+  name,
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  focused,
+  setFocused,
+  highlighted,
+  ...inputProps
+}) => (
   <div style={{ position: "relative" }}>
     <input
       type={type} name={name} placeholder={placeholder}
       value={value} onChange={onChange}
       onFocus={() => setFocused(name)} onBlur={() => setFocused("")}
+      {...inputProps}
       style={{
         ...S.input,
         border: focused === name ? "1.5px solid #2d6af6" : highlighted ? "1.5px solid #1a9c4d" : "1.5px solid #e4e0d8",

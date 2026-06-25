@@ -19,7 +19,7 @@ function Register() {
     setLoading(true);
     try {
       // ✅ FIXED URL - "/auth/register" not "/users/register"
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
+      const response = await fetch(`http://localhost:8080/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -30,11 +30,17 @@ function Register() {
       setIsSuccess(response.ok);
       
       // ✅ Agar registration successful ho to login page pe bhej do
-      if (response.ok) {
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000); // 2 seconds baad login page pe jayega
-      }
+      // ✅ Naya — credentials bhi bhejo saath me
+if (response.ok) {
+  setTimeout(() => {
+    navigate('/login/user', { 
+      state: { 
+        email: formData.email, 
+        password: formData.password 
+      } 
+    });
+  }, 2000);
+}
       
     } catch (error) {
       setMessage('Something went wrong!');
@@ -167,7 +173,6 @@ function Register() {
             onChange={handleChange}
             required
           />
-
           <label style={styles.label}>Phone Number</label>
           <input
             style={styles.input}
