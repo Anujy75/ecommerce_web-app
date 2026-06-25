@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';  // ✅ ADD THIS
+import API from '../services/api';
 
 function Register() {
   const navigate = useNavigate();  // ✅ ADD THIS
@@ -18,32 +19,22 @@ function Register() {
     e.preventDefault();
     setLoading(true);
     try {
-      // ✅ FIXED URL - "/auth/register" not "/users/register"
-      const response = await fetch(`/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      const response = await API.post('/auth/register', formData);
       
-      const data = await response.text();
-      setMessage(data);
-      setIsSuccess(response.ok);
+      setMessage(response.data);
+      setIsSuccess(true);
       
-      // ✅ Agar registration successful ho to login page pe bhej do
-      // ✅ Naya — credentials bhi bhejo saath me
-if (response.ok) {
-  setTimeout(() => {
-    navigate('/login/user', { 
-      state: { 
-        email: formData.email, 
-        password: formData.password 
-      } 
-    });
-  }, 2000);
-}
+      setTimeout(() => {
+        navigate('/login/user', { 
+          state: { 
+            email: formData.email, 
+            password: formData.password 
+          } 
+        });
+      }, 2000);
       
     } catch (error) {
-      setMessage('Something went wrong!');
+      setMessage(error.response?.data || 'Something went wrong!');
       setIsSuccess(false);
     }
     setLoading(false);
