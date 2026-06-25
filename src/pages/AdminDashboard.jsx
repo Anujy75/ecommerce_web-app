@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import API from "../services/api";
 import { useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
@@ -27,7 +27,7 @@ const AdminDashboard = () => {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const response = await axios.get("/api/products/all", {
+      const response = await API.get("/api/products/all", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(response.data);
@@ -65,12 +65,12 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       if (editingProduct) {
-        await axios.put(`/api/products/${editingProduct.id}`, formData, {
+        await API.put(`/api/products/${editingProduct.id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showMessage("Product updated successfully!", "success");
       } else {
-        await axios.post("/api/products", formData, {
+        await API.post("/api/products", formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showMessage("Product added successfully!", "success");
@@ -88,7 +88,7 @@ const AdminDashboard = () => {
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
       try {
         const currentToken = localStorage.getItem("token");
-        await axios.delete(
+        await API.delete(
           `/api/products/${id}`,
           { headers: { 'Authorization': `Bearer ${currentToken}` } }
         );
@@ -107,7 +107,7 @@ const AdminDashboard = () => {
     const updatedProduct = { ...product, stock: newStock };
     
     try {
-      await axios.put(`/api/products/${product.id}`, updatedProduct, {
+      await API.put(`/api/products/${product.id}`, updatedProduct, {
         headers: { Authorization: `Bearer ${token}` }
       });
       showMessage(`Product ${newStock > 0 ? "marked IN STOCK" : "marked OUT OF STOCK"}!`, "success");
@@ -806,3 +806,5 @@ styleSheet.textContent = `
 document.head.appendChild(styleSheet);
 
 export default AdminDashboard;
+
+

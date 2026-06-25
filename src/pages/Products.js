@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
-import axios from "axios";
+import API from "../services/api";
 import toast from "react-hot-toast";
 
 /* ─────────────────────────────────────────────
@@ -545,7 +545,7 @@ function Products() {
     if (!token) { toast.error("Please login first"); navigate("/portal"); return; }
     setAdding(prev => ({ ...prev, [product.id]: true }));
     try {
-      await axios.post("/api/cart/add",
+      await API.post("/api/cart/add",
         { productId: product.id, quantity: 1 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -562,7 +562,7 @@ function Products() {
   const handleBuyNow = useCallback(async (product) => {
     if (!token) { toast.error("Please login first"); navigate("/portal"); return; }
     try {
-      await axios.post("/api/cart/add",
+      await API.post("/api/cart/add",
         { productId: product.id, quantity: 1 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -1601,3 +1601,5 @@ if (!document.getElementById("prod-extra-styles")) {
 }
 
 export default Products;
+
+

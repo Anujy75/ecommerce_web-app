@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import API from "../services/api";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -19,7 +19,7 @@ const AdminLogin = () => {
     setError("");
     
     try {
-      const response = await axios.post(
+      const response = await API.post(
         "/api/auth/login",
         formData
       );
@@ -154,3 +154,5 @@ const styles = {
 };
 
 export default AdminLogin;
+
+

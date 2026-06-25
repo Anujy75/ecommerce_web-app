@@ -1,4 +1,4 @@
-import axios from "axios";
+import API from "../services/api";
 
 const API = axios.create({
   baseURL: "https://shopease-backend-5nf5.onrender.com/api"
@@ -14,3 +14,5 @@ API.interceptors.request.use((config) => {
 });
 
 export default API;
+
+

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../services/api";
 
 /* ─────────────────────────────────────────────
    INJECT FONTS + KEYFRAMES
@@ -232,7 +232,7 @@ const Orders = () => {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const res = await axios.get("/api/orders/user", {
+      const res = await API.get("/api/orders/user", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrders(res.data);
@@ -594,3 +594,5 @@ const S = {
 };
 
 export default Orders;
+
+

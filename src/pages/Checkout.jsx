@@ -5,7 +5,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../services/api";
 import toast from "react-hot-toast";
 import { initiateRazorpayPayment } from "../services/razorpay";
 
@@ -149,7 +149,7 @@ const Checkout = () => {
   /* ── load cart ── */
   const loadCart = useCallback(async () => {
     try {
-      const response = await axios.get("/api/cart", {
+      const response = await API.get("/api/cart", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCart(response.data.items || []);
@@ -299,7 +299,7 @@ const Checkout = () => {
             
             // Step 1: Create order in backend
             console.log("Creating order in backend...");
-            const orderResponse = await axios.post(
+            const orderResponse = await API.post(
               "/api/orders/checkout",
               {
                 ...shippingData,
@@ -344,7 +344,7 @@ const Checkout = () => {
     /* ── COD / UPI / CARD / NETBANKING ── */
     setPlacing(true);
     try {
-      const response = await axios.post(
+      const response = await API.post(
         "/api/orders/checkout",
         { ...shippingData, discount, totalAmount: calculations.finalTotal },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -671,3 +671,5 @@ const S = {
 };
 
 export default Checkout;
+
+

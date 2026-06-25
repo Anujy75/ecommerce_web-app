@@ -710,3 +710,5 @@ const s = {
   relatedName:  { fontSize: "13px", fontWeight: 500, color: "var(--clr-ink2)", margin: "0 0 4px" },
   relatedPrice: { fontSize: "13px", color: "var(--clr-accent2)", fontWeight: 600, margin: 0 },
 };
+
+

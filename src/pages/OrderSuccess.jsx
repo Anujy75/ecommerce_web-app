@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import axios from "axios";
+import API from "../services/api";
 
 
 const S = {
@@ -307,7 +307,7 @@ const OrderSuccess = () => {
   const fetchOrderDetails = useCallback(async () => {
     if (!orderId) return;
     try {
-      const response = await axios.get(`/api/orders/${orderId}`, {
+      const response = await API.get(`/api/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrder(response.data);
@@ -560,3 +560,5 @@ const OrderSuccess = () => {
 };
 
 export default OrderSuccess;
+
+
