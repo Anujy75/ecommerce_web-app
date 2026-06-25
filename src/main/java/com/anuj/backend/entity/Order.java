@@ -70,8 +70,8 @@ public class Order {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        orderStatus = "PENDING";
-        paymentStatus = "PENDING";
+        orderStatus = "CONFIRMED";
+        paymentStatus = "CONFIRMED";
     }
 
     @PreUpdate

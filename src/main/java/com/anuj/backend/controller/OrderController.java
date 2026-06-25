@@ -3,6 +3,7 @@ package com.anuj.backend.controller;
 import com.anuj.backend.dto.CheckoutRequest;
 import com.anuj.backend.entity.*;
 import com.anuj.backend.repository.*;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,7 +31,7 @@ public class OrderController {
 
     @PostMapping("/checkout")
     @Transactional
-    public ResponseEntity<?> checkout(@RequestBody CheckoutRequest request) {
+    public ResponseEntity<?> checkout(@Valid @RequestBody CheckoutRequest request) {
         try {
             System.out.println("=== CHECKOUT REQUEST RECEIVED ===");
             System.out.println("Payment Method : " + request.getPaymentMethod());
