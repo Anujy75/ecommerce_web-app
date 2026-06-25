@@ -1,7 +1,9 @@
-import API from "../services/api";
+import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://shopease-backend-5nf5.onrender.com/api"
+  baseURL:
+    process.env.REACT_APP_API_URL ||
+    "https://shopease-backend-5nf5.onrender.com/api",
 });
 
 // ✅ Har request mein automatically token add hoga

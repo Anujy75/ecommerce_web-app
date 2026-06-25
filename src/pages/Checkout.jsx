@@ -246,10 +246,9 @@ const Checkout = () => {
   // ✅ Update order status after payment success
   const updateOrderPaymentStatus = async (orderId, paymentId, status) => {
     try {
-      const response = await axios.patch(
+      const response = await API.patch(
         `/orders/${orderId}/payment-status`,
-        { paymentId, status },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { paymentId, status }
       );
       console.log("✅ Payment status updated:", response.data);
       return response.data;
