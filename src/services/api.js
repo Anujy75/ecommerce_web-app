@@ -1,9 +1,8 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL:
-    process.env.REACT_APP_API_URL ||
-    "https://shopease-backend-5nf5.onrender.com/api",
+  baseURL: "http://localhost:8080/api"
+  //baseURL: import.meta.env.VITE_API_URL + "/api" 
 });
 
 // ✅ Har request mein automatically token add hoga
@@ -16,7 +15,3 @@ API.interceptors.request.use((config) => {
 });
 
 export default API;
-
-
-
-

@@ -5,7 +5,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import API from "../services/api";
+import axios from "axios";
 import toast from "react-hot-toast";
 import { initiateRazorpayPayment } from "../services/razorpay";
 
@@ -149,7 +149,7 @@ const Checkout = () => {
   /* ── load cart ── */
   const loadCart = useCallback(async () => {
     try {
-      const response = await API.get("/cart", {
+      const response = await axios.get("http://localhost:8080/api/cart", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCart(response.data.items || []);
@@ -246,9 +246,10 @@ const Checkout = () => {
   // ✅ Update order status after payment success
   const updateOrderPaymentStatus = async (orderId, paymentId, status) => {
     try {
-      const response = await API.patch(
-        `/orders/${orderId}/payment-status`,
-        { paymentId, status }
+      const response = await axios.patch(
+        `http://localhost:8080/api/orders/${orderId}/payment-status`,
+        { paymentId, status },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       console.log("✅ Payment status updated:", response.data);
       return response.data;
@@ -298,8 +299,8 @@ const Checkout = () => {
             
             // Step 1: Create order in backend
             console.log("Creating order in backend...");
-            const orderResponse = await API.post(
-              "/orders/checkout",
+            const orderResponse = await axios.post(
+              "http://localhost:8080/api/orders/checkout",
               {
                 ...shippingData,
                 discount,
@@ -343,8 +344,8 @@ const Checkout = () => {
     /* ── COD / UPI / CARD / NETBANKING ── */
     setPlacing(true);
     try {
-      const response = await API.post(
-        "/orders/checkout",
+      const response = await axios.post(
+        "http://localhost:8080/api/orders/checkout",
         { ...shippingData, discount, totalAmount: calculations.finalTotal },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -670,7 +671,3 @@ const S = {
 };
 
 export default Checkout;
-
-
-
-

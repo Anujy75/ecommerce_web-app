@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API from "../services/api";
+import axios from "axios";
 import { Lock, Eye, EyeOff, Shield, CheckCircle, AlertCircle } from "lucide-react";
 
 const ChangePassword = () => {
@@ -77,8 +77,8 @@ const ChangePassword = () => {
     }
 
     try {
-      const response = await API.post(
-        "/user/change-password",
+      const response = await axios.post(
+        "http://localhost:8080/api/user/change-password",
         {
           oldPassword: formData.oldPassword,
           newPassword: formData.newPassword,
@@ -408,7 +408,3 @@ const styles = {
 };
 
 export default ChangePassword;
-
-
-
-

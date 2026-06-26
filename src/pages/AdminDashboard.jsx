@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import API from "../services/api";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
@@ -27,7 +27,7 @@ const AdminDashboard = () => {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const response = await API.get("/products/all", {
+      const response = await axios.get("http://localhost:8080/api/products/all", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(response.data);
@@ -65,12 +65,12 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       if (editingProduct) {
-        await API.put(`/products/${editingProduct.id}`, formData, {
+        await axios.put(`http://localhost:8080/api/products/${editingProduct.id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showMessage("Product updated successfully!", "success");
       } else {
-        await API.post("/products", formData, {
+        await axios.post("http://localhost:8080/api/products", formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showMessage("Product added successfully!", "success");
@@ -88,8 +88,8 @@ const AdminDashboard = () => {
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
       try {
         const currentToken = localStorage.getItem("token");
-        await API.delete(
-          `/products/${id}`,
+        await axios.delete(
+          `http://localhost:8080/api/products/${id}`,
           { headers: { 'Authorization': `Bearer ${currentToken}` } }
         );
         showMessage(`"${name}" deleted successfully!`, "success");
@@ -107,7 +107,7 @@ const AdminDashboard = () => {
     const updatedProduct = { ...product, stock: newStock };
     
     try {
-      await API.put(`/products/${product.id}`, updatedProduct, {
+      await axios.put(`http://localhost:8080/api/products/${product.id}`, updatedProduct, {
         headers: { Authorization: `Bearer ${token}` }
       });
       showMessage(`Product ${newStock > 0 ? "marked IN STOCK" : "marked OUT OF STOCK"}!`, "success");
@@ -806,7 +806,3 @@ styleSheet.textContent = `
 document.head.appendChild(styleSheet);
 
 export default AdminDashboard;
-
-
-
-

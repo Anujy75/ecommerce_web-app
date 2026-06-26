@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import API from "../services/api";
+import axios from "axios";
 import toast from "react-hot-toast";
 
 const Cart = () => {
@@ -28,7 +28,7 @@ const Cart = () => {
         return;
       }
 
-      const response = await API.get("/cart", {
+      const response = await axios.get("http://localhost:8080/api/cart", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -77,8 +77,8 @@ const Cart = () => {
   }
 
   try {
-    const response = await API.put(
-      `/cart/update/${cartItemId}`,
+    const response = await axios.put(
+      `http://localhost:8080/api/cart/update/${cartItemId}`,
       { quantity: newQuantity },
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -106,7 +106,7 @@ const removeItem = async (cartItemId) => {
   console.log("Removing item:", cartItemId); // Debug
   
   try {
-    await API.delete(`/cart/remove/${cartItemId}`, {
+    await axios.delete(`http://localhost:8080/api/cart/remove/${cartItemId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
      await loadCart();
@@ -125,7 +125,7 @@ const removeItem = async (cartItemId) => {
   const clearCart = async () => {
     if (window.confirm("Are you sure you want to clear your entire cart?")) {
       try {
-        await API.delete("/cart/clear", {
+        await axios.delete("http://localhost:8080/api/cart/clear", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -432,7 +432,3 @@ styleSheet.textContent = `
 document.head.appendChild(styleSheet);
 
 export default Cart;
-
-
-
-
